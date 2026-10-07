@@ -55,12 +55,15 @@ class Gate:
         self.max_bytes = max_bytes
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        # /health is unauthenticated on purpose: clients use it to check reachability.
-        if scope["type"] != "http" or scope["path"] == "/health":
+        if scope["type"] != "http":  # lifespan; there are no WebSocket routes
             await self.app(scope, receive, send)
             return
+        # GET /health is unauthenticated on purpose: clients use it to check
+        # reachability. It still goes through the size limit below.
+        public = scope["path"] == "/health" and scope["method"] in ("GET", "HEAD")
         headers = Headers(scope=scope)
-        if self.expected and not hmac.compare_digest(headers.get("authorization", "").encode(), self.expected):
+        sent = headers.get("authorization", "").encode()
+        if self.expected and not public and not hmac.compare_digest(sent, self.expected):
             await JSONResponse({"detail": "missing or wrong bearer token"}, status_code=401)(scope, receive, send)
             return
         length = headers.get("content-length")
@@ -69,7 +72,7 @@ class Gate:
             return
 
         received = 0
-        overflow = started = False
+        overflow = started = finished = False
 
         async def counted_receive() -> Message:
             nonlocal received, overflow
@@ -82,10 +85,11 @@ class Gate:
             return message
 
         async def guarded_send(message: Message) -> None:
-            nonlocal started
-            if overflow:
-                return  # whatever the app makes of the aborted body, the gate answers
+            nonlocal started, finished
+            if overflow and not started:
+                return  # whatever the app makes of the aborted body, the gate answers 413
             started = started or message["type"] == "http.response.start"
+            finished = finished or (message["type"] == "http.response.body" and not message.get("more_body", False))
             await send(message)
 
         try:
@@ -94,6 +98,10 @@ class Gate:
             pass
         if overflow and not started:
             await JSONResponse({"detail": "upload too large"}, status_code=413)(scope, receive, send)
+        elif overflow and not finished:
+            # The app had already started answering: end that response rather
+            # than leave the client waiting.
+            await send({"type": "http.response.body", "body": b"", "more_body": False})
 
 
 def create_app(engine: Engine, token: str | None) -> FastAPI:

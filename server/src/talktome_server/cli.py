@@ -41,6 +41,9 @@ def read_token() -> str | None:
     if token := os.environ.get("TALKTOME_TOKEN"):
         return token.strip()
     if TOKEN_FILE.exists():
+        # Older versions, or a hand-made file, may have left it readable by others.
+        if TOKEN_FILE.stat().st_mode & 0o077:
+            TOKEN_FILE.chmod(0o600)
         return TOKEN_FILE.read_text().strip() or None
     return None
 

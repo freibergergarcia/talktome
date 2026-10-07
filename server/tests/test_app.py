@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi.testclient import TestClient
 
 from talktome_server.app import Gate, create_app
@@ -114,3 +116,32 @@ def test_undeclared_body_stops_at_the_limit(engine):
     )
     assert response.status_code == 413
     assert engine.calls == []
+
+
+def test_overflow_after_the_response_started_still_ends_it():
+    # An app that answers before reading its body must not leave the
+    # response open when the body overflows: the gate sends the final event.
+    async def eager(scope, receive, send):
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        while (await receive()).get("more_body"):
+            pass
+        await send({"type": "http.response.body", "body": b"done"})
+
+    chunks = iter([b"x" * 600, b"x" * 600])
+    sent = []
+
+    async def receive():
+        return {"type": "http.request", "body": next(chunks), "more_body": True}
+
+    async def send(message):
+        sent.append(message)
+
+    scope = {"type": "http", "method": "POST", "path": "/x", "headers": []}
+    asyncio.run(Gate(eager, token=None, max_bytes=1_000)(scope, receive, send))
+    assert sent[0]["type"] == "http.response.start"
+    assert sent[-1] == {"type": "http.response.body", "body": b"", "more_body": False}
+
+
+def test_only_get_health_is_public(client):
+    assert client.get("/health").status_code == 200
+    assert client.post("/health", content=b"x").status_code == 401
