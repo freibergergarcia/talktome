@@ -1,0 +1,13 @@
+// Defaults for anyone building from source: a generic bundle identifier and
+// ad-hoc signing, so no Apple developer account is needed.
+//
+// To sign with your own identity (keeps macOS permissions across rebuilds),
+// copy Local.xcconfig.example to Local.xcconfig and fill it in. Local.xcconfig
+// is git-ignored.
+
+PRODUCT_BUNDLE_IDENTIFIER = dev.talktome.TalkToMe
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = -
+DEVELOPMENT_TEAM =
+
+#include? "Local.xcconfig"

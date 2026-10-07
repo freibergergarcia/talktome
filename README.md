@@ -1,0 +1,162 @@
+<p align="center"><img src="docs/images/icon.png" width="128" alt="TalkToMe icon"></p>
+
+# TalkToMe
+
+Push-to-talk dictation for macOS. Tap a key, talk, tap again: your words are
+pasted where the cursor is. Transcription runs on your Mac, or on a server you
+control. No account, no subscription, no cloud unless you point it at one.
+
+<p align="center">
+  <img src="docs/images/pill-recording.png" width="420" alt="Recording pill with live waveform">
+  <img src="docs/images/pill-done.png" width="420" alt="Pill showing the pasted transcript">
+</p>
+
+<p align="center">
+  <img src="docs/images/home.png" width="340" alt="Menu bar panel with today's stats and recent dictations">
+</p>
+
+## Features
+
+- **One key.** Tap right ⌘ to start and stop, or hold it while you talk. Esc
+  cancels. Right ⌥, right ⌃ or fn work too.
+- **Pastes at the cursor** in any app, and always copies to the clipboard.
+- **Three ways to transcribe:**
+  - **On this Mac:** Apple's on-device speech model. Zero setup, nothing leaves the Mac.
+  - **Your own server:** `talktome-server` runs NVIDIA Parakeet on any Apple
+    Silicon Mac on your network. Well under half a second per sentence, and it detects 25 languages on its own.
+  - **Any OpenAI-compatible endpoint:** anything that implements
+    `POST /v1/audio/transcriptions`.
+- **Automatic fallback** to on-device transcription when the server is
+  asleep or you are away from home.
+- **Small and dependency-free:** the app uses only Apple frameworks.
+
+## Requirements
+
+| Part | Needs |
+|---|---|
+| App | macOS 26 or later; Xcode 26+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen) to build |
+| Server (optional) | A Mac with Apple Silicon, Python 3.10+ |
+
+## Quick start
+
+### 1. Build and run the app
+
+```sh
+brew install xcodegen
+git clone <this repo> && cd talktome/app
+./install.sh            # builds, installs to /Applications, launches
+```
+
+TalkToMe sits in the menu bar (a waveform icon) and in the Dock while it runs;
+clicking either opens its panel. Prefer menu bar only? Turn off Settings → Show in
+Dock. On first use macOS asks for:
+
+| Permission | Why |
+|---|---|
+| Input Monitoring | To notice the dictation key while you work in other apps |
+| Microphone | To record while you dictate |
+| Accessibility | To paste with ⌘V into the app you are using (optional; turn off "Paste at the cursor" to skip) |
+
+Out of the box it transcribes on-device. That's it: tap right ⌘ and talk.
+
+### 2. Optional: run your own server
+
+On the Mac that will do the transcribing (it can be the same Mac):
+
+```sh
+python3 -m venv ~/.local/share/talktome-server/venv
+~/.local/share/talktome-server/venv/bin/pip install "./server[mlx]"
+~/.local/share/talktome-server/venv/bin/talktome-server install-agent --host 0.0.0.0
+~/.local/share/talktome-server/venv/bin/talktome-server token     # copy this
+```
+
+`install-agent` starts the server now and at every login. The first start
+downloads the model (about 2.5 GB). Without `--host` the server only accepts
+connections from its own machine.
+
+Or deploy from your laptop over SSH:
+
+```sh
+scripts/deploy-server.sh my-server-mac --host 0.0.0.0
+```
+
+Then in TalkToMe → **Settings… → Transcription**: choose **Server**, enter
+`http://<server-name>.local:8766/v1`, paste the token, and press **Test connection**.
+
+#### Firewall
+
+If the macOS firewall is on, it may silently drop connections to Python.
+`install-agent` prints the exact program to allow; then on the server:
+
+```sh
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add <program>
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp <program>
+```
+
+The path includes the Python version, so repeat this after upgrading Python.
+
+### 3. Optional: use another OpenAI-compatible service
+
+Choose **Server**, enter the provider's base URL (ending in `/v1`), its API
+key, and the model name it expects. Check your provider's documentation for
+the model name. Audio goes only to the URL you enter.
+
+## How it works
+
+```
+ right ⌘ ──▶ TalkToMe.app ── 16 kHz WAV ──▶ engine ── text ──▶ clipboard + ⌘V
+                  │                            │
+                  │                ┌───────────┴────────────┐
+                  │                │ Apple SpeechTranscriber │ on this Mac
+                  │                │ talktome-server         │ Parakeet on your network
+                  │                │ OpenAI-compatible API   │ anywhere you choose
+                  │                └─────────────────────────┘
+                  └── floating pill: waveform, timer, result
+```
+
+| Engine | Typical latency | Languages | Where audio goes |
+|---|---|---|---|
+| On this Mac | ~0.2–0.5 s | One at a time, chosen in Settings | Nowhere |
+| talktome-server (Parakeet v3) | ~0.15–0.45 s on a home network | 25 European languages, auto-detected | Your server |
+| OpenAI-compatible | Depends on provider | Depends on provider | The URL you set |
+
+## Privacy
+
+- Transcripts are never written to disk by TalkToMe or `talktome-server`.
+  The app keeps the last 20 in memory for the "Recent" list; quitting clears them.
+- Only counts (words, dictations, timings) are saved, for the stats tiles.
+- The server logs the length and loudness of each clip, never its content.
+- The optional debug log records key presses and timings, never text.
+
+See [SECURITY.md](SECURITY.md) for the network model.
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+|---|---|
+| "Didn't catch that" every time | The mic records silence. With the lid closed the built-in mic is off: pick another input in Settings → Microphone |
+| Nothing happens on the key | Input Monitoring is not granted. System Settings → Privacy & Security → Input Monitoring |
+| Text is copied but not pasted | Accessibility is not granted, or "Paste at the cursor" is off |
+| Permissions reset after every build | The app is ad-hoc signed. Sign with your own identity, see [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Server works locally but not from another Mac | Firewall, see [Firewall](#firewall) |
+| "requires the use of a secure connection" | macOS only allows plain HTTP to local addresses (`.local`, private IPs). Use HTTPS for anything else |
+
+Turn on **Settings → Advanced → Debug log** and check `~/Library/Logs/TalkToMe.log`.
+
+## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). In short:
+
+```sh
+cd app && xcodegen generate && xcodebuild -scheme TalkToMe test
+cd server && pip install -e '.[dev]' && pytest && ruff check .
+```
+
+## Credits
+
+- [parakeet-mlx](https://github.com/senstella/parakeet-mlx) (Apache-2.0) runs the model on Apple Silicon.
+- [Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) by NVIDIA (CC-BY-4.0).
+
+## License
+
+[MIT](LICENSE)

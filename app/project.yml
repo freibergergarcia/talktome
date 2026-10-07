@@ -1,0 +1,62 @@
+name: TalkToMe
+options:
+  deploymentTarget:
+    macOS: "26.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: targeted
+    ENABLE_HARDENED_RUNTIME: YES
+    MARKETING_VERSION: "0.1.0"
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  TalkToMe:
+    type: application
+    platform: macOS
+    configFiles:
+      Debug: Config/Base.xcconfig
+      Release: Config/Base.xcconfig
+    sources: [TalkToMe]
+    entitlements:
+      path: TalkToMe/TalkToMe.entitlements
+      properties:
+        com.apple.security.device.audio-input: true
+    info:
+      path: TalkToMe/Info.plist
+      properties:
+        CFBundleDisplayName: TalkToMe
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.productivity
+        NSHumanReadableCopyright: © 2026 Bruno Freiberger Garcia. MIT License.
+        LSUIElement: true
+        NSMicrophoneUsageDescription: TalkToMe records your voice while you dictate, to transcribe it.
+        NSLocalNetworkUsageDescription: TalkToMe can send recordings to a transcription server on your network, if you set one up.
+        NSSpeechRecognitionUsageDescription: TalkToMe uses Apple's on-device speech recognition to transcribe your voice.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+  TalkToMeTests:
+    type: bundle.unit-test
+    platform: macOS
+    # The tests compile the app's pure logic directly instead of loading the
+    # app, which would start the hotkey tap and ask for permissions.
+    sources:
+      - path: Tests
+      - path: TalkToMe/HotkeyMonitor.swift
+      - path: TalkToMe/EventLog.swift
+      - path: TalkToMe/Stats.swift
+      - path: TalkToMe/Wire.swift
+    settings:
+      base:
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  TalkToMe:
+    build:
+      targets:
+        TalkToMe: all
+        TalkToMeTests: [test]
+    test:
+      targets: [TalkToMeTests]

@@ -1,0 +1,7 @@
+// Copy to Local.xcconfig (git-ignored) to sign with your own Apple identity.
+// Find your team ID with: security find-identity -p codesigning -v
+
+PRODUCT_BUNDLE_IDENTIFIER = com.example.TalkToMe
+DEVELOPMENT_TEAM = ABCDE12345
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY = Apple Development
