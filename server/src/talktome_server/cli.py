@@ -48,9 +48,10 @@ def read_token() -> str | None:
 def ensure_token() -> str:
     if token := read_token():
         return token
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
     token = secrets.token_hex(32)
     TOKEN_FILE.touch(mode=0o600)
+    TOKEN_FILE.chmod(0o600)  # touch keeps the mode of a file that already existed (e.g. empty)
     TOKEN_FILE.write_text(token + "\n")
     return token
 

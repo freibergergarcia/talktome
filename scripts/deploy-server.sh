@@ -20,7 +20,8 @@ hf_home="${HF_HOME:-}"
 
 ssh "$remote" "mkdir -p $dir"
 rsync -a --delete --exclude .venv --exclude __pycache__ --exclude '*.egg-info' server/ "$remote:$dir/src/"
-ssh "$remote" bash -s -- "$python" "$hf_home" "$@" <<'REMOTE'
+# ssh joins its arguments into one remote shell command, so quote each one.
+ssh "$remote" "bash -s -- $(printf '%q ' "$python" "$hf_home" "$@")" <<'REMOTE'
 set -euo pipefail
 python="$1"; hf_home="$2"; shift 2
 cd ~/.local/share/talktome-server

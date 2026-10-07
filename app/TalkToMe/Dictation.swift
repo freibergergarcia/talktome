@@ -93,7 +93,12 @@ final class Dictation {
             do {
                 return (try await remote.transcribe(pcm), remote.name)
             } catch {
-                EventLog.write("remote failed: \(error.localizedDescription)")
+                // Status only: a server's error body could echo request text.
+                if case .server(let code, _) = error as? TranscriberError {
+                    EventLog.write("remote failed: HTTP \(code)")
+                } else {
+                    EventLog.write("remote failed: \(error.localizedDescription)")
+                }
                 guard settings.fallbackToApple else { throw error }
                 remoteReachable = false
             }

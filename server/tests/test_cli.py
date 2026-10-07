@@ -28,6 +28,15 @@ def test_ensure_token_creates_private_file_once(tmp_path, monkeypatch):
     assert cli.ensure_token() == first
 
 
+def test_ensure_token_tightens_an_existing_empty_file(tmp_path, monkeypatch):
+    monkeypatch.delenv("TALKTOME_TOKEN", raising=False)
+    monkeypatch.setattr(cli, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(cli, "TOKEN_FILE", tmp_path / "token")
+    (tmp_path / "token").touch(mode=0o644)
+    cli.ensure_token()
+    assert (tmp_path / "token").stat().st_mode & 0o777 == 0o600
+
+
 def test_env_token_wins(monkeypatch):
     monkeypatch.setenv("TALKTOME_TOKEN", " from-env ")
     assert cli.read_token() == "from-env"

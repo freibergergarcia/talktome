@@ -11,9 +11,11 @@ import time
 from typing import Protocol
 
 import numpy as np
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
+from starlette.datastructures import Headers
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from . import __version__
 from .audio import SAMPLE_RATE, AudioTooLong, UnsupportedAudio, decode_wav, rms
@@ -33,26 +35,81 @@ class Engine(Protocol):
     def transcribe(self, samples: np.ndarray) -> str: ...
 
 
+class _BodyTooLarge(Exception):
+    pass
+
+
+class Gate:
+    """Checks the token and the body size before anything reads the body.
+
+    FastAPI parses multipart uploads (spooling files to disk) before route
+    dependencies run, so a token check in a dependency would still let anyone
+    on the network upload unlimited data. This ASGI middleware runs first:
+    every path except /health needs the token, and bodies stop being read
+    past `max_bytes`, whether or not Content-Length is declared.
+    """
+
+    def __init__(self, app: ASGIApp, token: str | None, max_bytes: int) -> None:
+        self.app = app
+        self.expected = f"Bearer {token}".encode() if token else None
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        # /health is unauthenticated on purpose: clients use it to check reachability.
+        if scope["type"] != "http" or scope["path"] == "/health":
+            await self.app(scope, receive, send)
+            return
+        headers = Headers(scope=scope)
+        if self.expected and not hmac.compare_digest(headers.get("authorization", "").encode(), self.expected):
+            await JSONResponse({"detail": "missing or wrong bearer token"}, status_code=401)(scope, receive, send)
+            return
+        length = headers.get("content-length")
+        if length is not None and (not length.isdigit() or int(length) > self.max_bytes):
+            await JSONResponse({"detail": "upload too large"}, status_code=413)(scope, receive, send)
+            return
+
+        received = 0
+        overflow = started = False
+
+        async def counted_receive() -> Message:
+            nonlocal received, overflow
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > self.max_bytes:
+                    overflow = True
+                    raise _BodyTooLarge
+            return message
+
+        async def guarded_send(message: Message) -> None:
+            nonlocal started
+            if overflow:
+                return  # whatever the app makes of the aborted body, the gate answers
+            started = started or message["type"] == "http.response.start"
+            await send(message)
+
+        try:
+            await self.app(scope, counted_receive, guarded_send)
+        except _BodyTooLarge:
+            pass
+        if overflow and not started:
+            await JSONResponse({"detail": "upload too large"}, status_code=413)(scope, receive, send)
+
+
 def create_app(engine: Engine, token: str | None) -> FastAPI:
     app = FastAPI(title="talktome-server", version=__version__)
-
-    def require_token(request: Request) -> None:
-        if not token:
-            return
-        sent = request.headers.get("authorization", "")
-        if not hmac.compare_digest(sent.encode(), f"Bearer {token}".encode()):
-            raise HTTPException(status_code=401, detail="missing or wrong bearer token")
+    # Multipart overhead on top of the audio itself is a few hundred bytes.
+    app.add_middleware(Gate, token=token, max_bytes=MAX_UPLOAD_BYTES + 64 * 1024)
 
     @app.get("/health")
     def health() -> dict:
-        # Unauthenticated on purpose: clients use it to check reachability.
         return {"ok": True}
 
-    @app.get("/v1/models", dependencies=[Depends(require_token)])
+    @app.get("/v1/models")
     def models() -> dict:
         return {"object": "list", "data": [{"id": engine.model_id, "object": "model", "owned_by": "local"}]}
 
-    @app.post("/v1/audio/transcriptions", dependencies=[Depends(require_token)])
+    @app.post("/v1/audio/transcriptions")
     async def transcriptions(
         file: UploadFile = File(...),
         model: str | None = Form(None),  # accepted for compatibility; the server runs one model
