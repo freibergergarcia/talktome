@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from talktome_server.app import create_app
+from talktome_server.app import Gate, create_app
 
 from .conftest import FakeEngine, make_wav
 
@@ -70,4 +70,47 @@ def test_hostile_header_is_rejected_not_resampled(client, auth, engine):
 
     assert upload(client, lying_header(rate=1), auth).status_code == 415
     assert upload(client, lying_header(rate=16_000, frames=16_000 * 3600), auth).status_code == 413
+    assert engine.calls == []
+
+
+def test_unauthorized_upload_is_refused_before_parsing(client, monkeypatch):
+    # FastAPI parses multipart bodies before dependencies run; the gate must
+    # answer 401 without the parser ever seeing the upload.
+    import starlette.formparsers
+
+    parsed = []
+    original = starlette.formparsers.MultiPartParser.parse
+
+    async def spy(self):
+        parsed.append(True)
+        return await original(self)
+
+    monkeypatch.setattr(starlette.formparsers.MultiPartParser, "parse", spy)
+    response = upload(client, b"x" * 1_000_000, {})
+    assert response.status_code == 401
+    assert parsed == []
+
+
+def test_docs_need_the_token(client, auth):
+    assert client.get("/docs").status_code == 401
+    assert client.get("/openapi.json", headers=auth).status_code == 200
+
+
+def test_declared_oversized_body_is_refused_unread(client, auth):
+    headers = {**auth, "Content-Length": str(10**12)}
+    response = client.post("/v1/audio/transcriptions", headers=headers, content=b"")
+    assert response.status_code == 413
+
+
+def test_undeclared_body_stops_at_the_limit(engine):
+    small = TestClient(Gate(create_app(engine, token=None), token=None, max_bytes=10_000))
+
+    def chunks():  # no Content-Length: sent chunked
+        for _ in range(100):
+            yield b"x" * 1_000
+
+    response = small.post(
+        "/v1/audio/transcriptions", content=chunks(), headers={"Content-Type": "multipart/form-data; boundary=b"}
+    )
+    assert response.status_code == 413
     assert engine.calls == []

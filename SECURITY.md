@@ -17,7 +17,9 @@ unreachable and fallback is on, it transcribes on-device instead.
 - The token is 32 random bytes, stored in `~/.config/talktome/token` with
   mode `0600`, and compared in constant time.
 - `/health` is unauthenticated so clients can check reachability. It returns
-  only `{"ok": true}`.
+  only `{"ok": true}`. Every other path, including the API docs, needs the
+  token, and the token and upload size are checked before the request body is
+  read, so an unauthenticated client cannot make the server store data.
 - **Traffic is plain HTTP.** On a trusted home network that is a reasonable
   trade-off; on shared networks, put the server behind HTTPS (a reverse proxy
   or a tunnel such as Tailscale). The app allows plain HTTP only to local

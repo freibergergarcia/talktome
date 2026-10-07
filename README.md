@@ -93,6 +93,8 @@ scripts/deploy-server.sh my-server-mac --host 0.0.0.0
 
 Then in TalkToMe → **Settings… → Transcription**: choose **Server**, enter
 `http://<server-name>.local:8766/v1`, paste the token, and press **Test connection**.
+Plain HTTP suits a trusted home network; on shared networks put the server
+behind HTTPS (see [SECURITY.md](SECURITY.md)).
 
 #### Firewall
 
