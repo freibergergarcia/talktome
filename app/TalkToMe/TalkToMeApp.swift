@@ -108,8 +108,13 @@ enum Snapshots {
             Dictation.Entry(text: "Remind me to check the deploy logs after the standup.",
                             engine: "Apple", seconds: 3, date: now.addingTimeInterval(-5400)),
         ]
+        // Split into typed steps: as one expression, older Swift compilers
+        // (Xcode 26) time out type-checking it.
         let levels: [Float] = (0..<Dictation.levelCount).map { i in
-            Float(0.2 + 0.75 * abs(sin(Double(i) * 0.55)) * (0.4 + 0.6 * Double(i) / Double(Dictation.levelCount)))
+            let position: Double = Double(i) / Double(Dictation.levelCount)
+            let wave: Double = abs(sin(Double(i) * 0.55))
+            let rise: Double = 0.4 + 0.6 * position
+            return Float(0.2 + 0.75 * wave * rise)
         }
 
         let model = Dictation(settings: settings, live: false)

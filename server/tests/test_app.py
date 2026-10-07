@@ -56,3 +56,18 @@ def test_models_lists_the_loaded_model(client, auth):
 def test_no_token_configured_allows_anyone():
     open_client = TestClient(create_app(FakeEngine(), token=None))
     assert upload(open_client, make_wav(), {}).status_code == 200
+
+
+def test_oversized_upload_is_413(client, auth, monkeypatch):
+    from talktome_server import app as app_module
+
+    monkeypatch.setattr(app_module, "MAX_UPLOAD_BYTES", 1000)
+    assert upload(client, make_wav(seconds=1), auth).status_code == 413
+
+
+def test_hostile_header_is_rejected_not_resampled(client, auth, engine):
+    from .test_audio import lying_header
+
+    assert upload(client, lying_header(rate=1), auth).status_code == 415
+    assert upload(client, lying_header(rate=16_000, frames=16_000 * 3600), auth).status_code == 413
+    assert engine.calls == []

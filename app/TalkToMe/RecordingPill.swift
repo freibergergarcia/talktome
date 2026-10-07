@@ -189,7 +189,7 @@ struct Waveform: View {
         GeometryReader { geo in
             HStack(alignment: .center, spacing: 2.5) {
                 ForEach(levels.indices, id: \.self) { i in
-                    let fade = 0.25 + 0.75 * Double(i) / Double(max(levels.count - 1, 1))
+                    let fade: Double = 0.25 + 0.75 * Double(i) / Double(max(levels.count - 1, 1))
                     Capsule()
                         .fill(LinearGradient(colors: [Palette.accent, Palette.accent2],
                                              startPoint: .bottom, endPoint: .top))
@@ -211,7 +211,7 @@ struct Shimmer: View {
             GeometryReader { geo in
                 HStack(spacing: 2.5) {
                     ForEach(0..<Dictation.levelCount, id: \.self) { i in
-                        let wave = 0.5 + 0.5 * sin(t * 6 - Double(i) * 0.45)
+                        let wave: Double = 0.5 + 0.5 * sin(t * 6 - Double(i) * 0.45)
                         Capsule()
                             .fill(Palette.accent2.opacity(0.35 + 0.5 * wave))
                             .frame(width: 3, height: 3 + geo.size.height * 0.35 * wave)
@@ -228,7 +228,7 @@ struct PulsingDot: View {
 
     var body: some View {
         TimelineView(.animation) { context in
-            let pulse = 0.5 + 0.5 * sin(context.date.timeIntervalSinceReferenceDate * 4)
+            let pulse: Double = 0.5 + 0.5 * sin(context.date.timeIntervalSinceReferenceDate * 4)
             Circle()
                 .fill(color)
                 .frame(width: 8, height: 8)
