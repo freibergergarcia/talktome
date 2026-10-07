@@ -132,7 +132,7 @@ enum Snapshots {
             ("pill-recording", .recording),
             ("pill-transcribing", .transcribing),
             ("pill-done", .done(text: history[0].text, engine: "example.local")),
-            ("pill-failed", .failed("Didn't catch that. Is the right microphone selected?")),
+            ("pill-failed", .failed("Mic: " + (AudioRecorder.RecorderError.noMicrophone.errorDescription ?? ""))),
         ]
         for (name, phase) in phases {
             let pillModel = Dictation(settings: settings, live: false)
