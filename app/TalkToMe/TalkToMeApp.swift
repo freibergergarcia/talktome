@@ -32,11 +32,16 @@ struct TalkToMeApp: App {
 ///   TalkToMe --snapshot <dir>     render every screen to PNGs with sample data
 ///   TalkToMe --transcribe <file>  run the configured engine on an audio file
 ///   TalkToMe --icon <dir>         render the app icon to AppIcon.png
+///   TalkToMe --dmg-background <dir>  render the installer background, 1x and 2x
 private extension CommandLine {
     @MainActor
     static func handled(settings: AppSettings) -> Bool {
         if let dir = value(after: "--icon") {
             Snapshots.renderIcon(to: URL(fileURLWithPath: dir))
+            return true
+        }
+        if let dir = value(after: "--dmg-background") {
+            Snapshots.renderDMGBackground(to: URL(fileURLWithPath: dir))
             return true
         }
         if let dir = value(after: "--snapshot") {
@@ -148,6 +153,18 @@ enum Snapshots {
         guard let image = renderer.cgImage else { return }
         let rep = NSBitmapImageRep(cgImage: image)
         try? rep.representation(using: .png, properties: [:])?.write(to: dir.appending(path: "AppIcon.png"))
+    }
+
+    static func renderDMGBackground(to dir: URL) {
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        for (scale, name) in [(1.0, "background.png"), (2.0, "background@2x.png")] {
+            let renderer = ImageRenderer(content: DMGBackgroundView())
+            renderer.scale = scale
+            guard let image = renderer.cgImage else { continue }
+            let rep = NSBitmapImageRep(cgImage: image)
+            rep.size = DMGBackgroundView.size // 72 dpi at 1x, 144 dpi at 2x
+            try? rep.representation(using: .png, properties: [:])?.write(to: dir.appending(path: name))
+        }
     }
 
     /// Draws through an offscreen window rather than ImageRenderer, which

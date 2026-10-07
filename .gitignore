@@ -30,3 +30,6 @@ server/.venv/
 # Xcode per-user state
 xcuserdata/
 *.xcuserstate
+
+# Release builds
+dist/
