@@ -47,3 +47,12 @@ def test_serve_refuses_network_without_token(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "TOKEN_FILE", tmp_path / "missing")
     with pytest.raises(SystemExit, match="without a token"):
         cli.main(["serve", "--host", "0.0.0.0"])
+
+
+def test_existing_readable_token_is_tightened(tmp_path, monkeypatch):
+    monkeypatch.delenv("TALKTOME_TOKEN", raising=False)
+    monkeypatch.setattr(cli, "TOKEN_FILE", tmp_path / "token")
+    (tmp_path / "token").write_text("abc\n")
+    (tmp_path / "token").chmod(0o644)
+    assert cli.read_token() == "abc"
+    assert (tmp_path / "token").stat().st_mode & 0o777 == 0o600
