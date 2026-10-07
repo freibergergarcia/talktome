@@ -39,7 +39,18 @@ control. No account, no subscription, no cloud unless you point it at one.
 
 ## Quick start
 
-### 1. Build and run the app
+### 1. Install the app
+
+Download `TalkToMe-<version>.dmg` from
+[Releases](https://github.com/freibergergarcia/talktome/releases), open it and
+drag TalkToMe onto Applications.
+
+The download is not notarized by Apple yet, so the first launch is blocked
+with "Apple could not verify TalkToMe". To allow it: open **System Settings →
+Privacy & Security**, scroll to **Security**, click **Open Anyway** next to
+TalkToMe, and confirm. You only do this once per version.
+
+Or build it from source:
 
 ```sh
 brew install xcodegen

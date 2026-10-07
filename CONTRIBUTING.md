@@ -14,6 +14,10 @@ xcodebuild -project TalkToMe.xcodeproj -scheme TalkToMe -derivedDataPath build t
 ./install.sh   # build Release, install to /Applications, launch
 ```
 
+`scripts/make-dmg.sh` packages a Release build as
+`dist/TalkToMe-<version>.dmg`, ad-hoc signed with the public bundle ID even if
+you have a `Local.xcconfig`.
+
 ### Signing and permissions
 
 By default the app is ad-hoc signed with the bundle ID `dev.talktome.TalkToMe`.
