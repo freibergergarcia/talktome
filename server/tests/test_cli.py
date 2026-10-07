@@ -11,7 +11,7 @@ from talktome_server import cli
         ("::1", True),
         ("0.0.0.0", False),
         ("192.168.1.20", False),
-        ("studio.local", False),
+        ("example.local", False),
     ],
 )
 def test_is_loopback(host, expected):

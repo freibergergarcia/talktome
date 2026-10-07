@@ -91,20 +91,21 @@ enum Snapshots {
         UserDefaults().removePersistentDomain(forName: suite)
         let settings = AppSettings(defaults: UserDefaults(suiteName: suite)!, usesKeychain: false)
         settings.engine = .remote
-        settings.remoteURL = "http://studio.local:8766/v1"
+        settings.remoteURL = "http://example.local:8766/v1"
         settings.remoteModel = "parakeet-tdt-0.6b-v3"
         settings.remoteAPIKey = "example-token"
         settings.appleLocale = "en-US"
-        HomePanel.nameOverride = "Alex"
+        HomePanel.nameOverride = "Example User"
+        SettingsView.microphoneOverride = "MacBook Pro Microphone"
 
         var stats = Stats()
         stats.record(text: String(repeating: "word ", count: 1240), seconds: 420, latencyMs: 372)
         let now = Date()
         let history = [
             Dictation.Entry(text: "Can you take a look at the pull request before lunch? The login redirect is fixed.",
-                            engine: "studio.local", seconds: 6, date: now.addingTimeInterval(-120)),
+                            engine: "example.local", seconds: 6, date: now.addingTimeInterval(-120)),
             Dictation.Entry(text: "Amanhã vou trabalhar de casa. Me mandem mensagem se precisarem de alguma coisa.",
-                            engine: "studio.local", seconds: 7, date: now.addingTimeInterval(-1500)),
+                            engine: "example.local", seconds: 7, date: now.addingTimeInterval(-1500)),
             Dictation.Entry(text: "Remind me to check the deploy logs after the standup.",
                             engine: "Apple", seconds: 3, date: now.addingTimeInterval(-5400)),
         ]
@@ -125,7 +126,7 @@ enum Snapshots {
         let phases: [(String, Dictation.Phase)] = [
             ("pill-recording", .recording),
             ("pill-transcribing", .transcribing),
-            ("pill-done", .done(text: history[0].text, engine: "studio.local")),
+            ("pill-done", .done(text: history[0].text, engine: "example.local")),
             ("pill-failed", .failed("Didn't catch that. Is the right microphone selected?")),
         ]
         for (name, phase) in phases {
