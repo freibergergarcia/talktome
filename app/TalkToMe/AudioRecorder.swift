@@ -21,15 +21,19 @@ final class AudioRecorder {
     static func requestPermission() async -> Bool { await AVCaptureDevice.requestAccess(for: .audio) }
 
     enum RecorderError: LocalizedError {
+        case noMicrophone
         case noInput(String)
         var errorDescription: String? {
             switch self {
+            // Desktop Macs (Mac Studio, Mac mini) have no built-in mic.
+            case .noMicrophone: "No microphone found. Connect one, or check System Settings → Sound → Input."
             case .noInput(let name): "\(name) is not delivering audio. Pick another microphone in Settings."
             }
         }
     }
 
     func start(device: Microphones.Device?) throws {
+        guard !Microphones.inputs().isEmpty else { throw RecorderError.noMicrophone }
         lock.withLock { pcm.removeAll(keepingCapacity: true) }
         // A fresh engine every time. A reused one remembers the mic's format,
         // and when the hardware changes underneath it (another app switches

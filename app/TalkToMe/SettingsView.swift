@@ -94,7 +94,7 @@ struct SettingsView: View {
     private var microphone: some View {
         Section {
             Picker("Input", selection: $settings.microphoneUID) {
-                Text("Automatic (\(Self.microphoneOverride ?? Microphones.resolve(preferredUID: nil)?.name ?? "none"))").tag(String?.none)
+                Text("Automatic (\(Self.microphoneOverride ?? Microphones.resolve(preferredUID: nil)?.name ?? "no microphone found"))").tag(String?.none)
                 ForEach(microphones) { mic in
                     Text(mic.isBuiltIn && Microphones.lidClosed ? "\(mic.name) (lid closed)" : mic.name)
                         .tag(String?.some(mic.uid))

@@ -160,6 +160,7 @@ See [SECURITY.md](SECURITY.md) for the network model.
 | Symptom | Likely cause |
 |---|---|
 | "Didn't catch that" every time | The mic records silence. With the lid closed the built-in mic is off: pick another input in Settings → Microphone |
+| "No microphone found" | Mac Studio and Mac mini have no built-in mic, and Screen Sharing does not bring yours along. Connect a USB or Bluetooth mic (or AirPods) to that Mac |
 | Nothing happens on the key | Input Monitoring is not granted. System Settings → Privacy & Security → Input Monitoring |
 | Text is copied but not pasted | Accessibility is not granted, or "Paste at the cursor" is off |
 | Permissions reset after every build | The app is ad-hoc signed. Sign with your own identity, see [CONTRIBUTING.md](CONTRIBUTING.md) |
