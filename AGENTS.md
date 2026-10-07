@@ -66,6 +66,9 @@ to `TalkToMeTests.sources` in `app/project.yml`.
 - **The server's HTTP contract is OpenAI's `/v1/audio/transcriptions`.** Do not
   add app-only endpoints; the app must work against any compatible server.
 - **The server refuses to listen beyond localhost without a token.** Keep it that way.
+- **Auth and upload size are checked in `Gate` (ASGI middleware), before the
+  body is read.** FastAPI parses multipart bodies before route dependencies
+  run, so never move the token check into a `Depends`.
 - After UI changes, run `--snapshot` and look at the PNGs; regenerate
   `docs/images` when the change is visible in the README.
 - MLX models are bound to the thread that loaded them: all model calls go

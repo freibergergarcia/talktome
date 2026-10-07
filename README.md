@@ -34,7 +34,7 @@ control. No account, no subscription, no cloud unless you point it at one.
 
 | Part | Needs |
 |---|---|
-| App | macOS 26 or later; Xcode 26+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen) to build |
+| App | macOS 26 or later. To build from source: Xcode 26+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen) |
 | Server (optional) | A Mac with Apple Silicon, Python 3.10+ |
 
 ## Quick start
@@ -54,7 +54,7 @@ Or build it from source:
 
 ```sh
 brew install xcodegen
-git clone <this repo> && cd talktome/app
+git clone https://github.com/freibergergarcia/talktome && cd talktome/app
 ./install.sh            # builds, installs to /Applications, launches
 ```
 
@@ -72,11 +72,13 @@ Out of the box it transcribes on-device. That's it: tap right ⌘ and talk.
 
 ### 2. Optional: run your own server
 
-On the Mac that will do the transcribing (it can be the same Mac):
+Skip this if you transcribe on-device or already have a compatible service
+(step 3). On the Mac that will do the transcribing (it can be the same Mac):
 
 ```sh
 python3 -m venv ~/.local/share/talktome-server/venv
-~/.local/share/talktome-server/venv/bin/pip install "./server[mlx]"
+~/.local/share/talktome-server/venv/bin/pip install \
+  "talktome-server[mlx] @ git+https://github.com/freibergergarcia/talktome@v0.1.1#subdirectory=server"
 ~/.local/share/talktome-server/venv/bin/talktome-server install-agent --host 0.0.0.0
 ~/.local/share/talktome-server/venv/bin/talktome-server token     # copy this
 ```
@@ -85,7 +87,7 @@ python3 -m venv ~/.local/share/talktome-server/venv
 downloads the model (about 2.5 GB). Without `--host` the server only accepts
 connections from its own machine.
 
-Or deploy from your laptop over SSH:
+Or, from a clone of this repository, deploy from your laptop over SSH:
 
 ```sh
 scripts/deploy-server.sh my-server-mac --host 0.0.0.0
@@ -108,11 +110,21 @@ sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp <program>
 
 The path includes the Python version, so repeat this after upgrading Python.
 
+#### Updating the server
+
+Release notes say when the server changed. Run the same `pip install` with
+the new version tag (or `deploy-server.sh` again), then restart it with
+`talktome-server install-agent --host 0.0.0.0`. The token and the downloaded
+model are kept. The app and the server only share the API, so their versions
+do not need to match.
+
 ### 3. Optional: use another OpenAI-compatible service
 
-Choose **Server**, enter the provider's base URL (ending in `/v1`), its API
-key, and the model name it expects. Check your provider's documentation for
-the model name. Audio goes only to the URL you enter.
+No server install needed: TalkToMe works with any service that implements
+OpenAI's `POST /v1/audio/transcriptions` and answers with JSON containing a
+`text` field. Choose **Server**, enter the provider's base URL (ending in
+`/v1`), its API key, and the model name it expects. Check your provider's
+documentation for the model name. Audio goes only to the URL you enter.
 
 ## How it works
 
