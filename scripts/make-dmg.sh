@@ -50,6 +50,12 @@ hdiutil create -quiet -srcfolder "$work/stage" -volname "$name" -fs HFS+ \
 hdiutil attach -quiet -readwrite -noverify -noautoopen -mountpoint "$mount_dir" "$work/rw.dmg"
 attached=1
 xcrun SetFile -a C "$mount_dir"   # use .VolumeIcon.icns
+# Finder lists a new disk a moment after it mounts (about 1 s on macOS 27);
+# asking for it sooner fails with "Can't get disk" (-1728).
+for _ in $(seq 1 20); do
+  [ "$(osascript -e "tell application \"Finder\" to exists disk \"$name\"")" = true ] && break
+  sleep 0.5
+done
 
 # Window: 660 × 400 content plus the 32 pt title bar (macOS 26); icons over
 # the background's marks (DMGBackgroundView.appCenter / applicationsCenter).
