@@ -31,6 +31,12 @@ def parse_languages(value: str | None) -> frozenset[str] | None:
     return frozenset(codes) or None
 
 
+def choose_languages(requested: frozenset[str] | None, default: frozenset[str] | None) -> frozenset[str] | None:
+    """A request's languages replace the server's default only if they name
+    one the model knows: otherwise `language=zz` would switch the guard off."""
+    return requested if alphabets(requested) else default
+
+
 def alphabets(languages: frozenset[str] | None) -> frozenset[str] | None:
     """The alphabets of the languages the model knows; codes it does not know
     are ignored (it cannot write them anyway). None means no restriction."""

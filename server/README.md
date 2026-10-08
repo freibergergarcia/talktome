@@ -57,7 +57,7 @@ curl http://localhost:8766/v1/audio/transcriptions \
 
 | Endpoint | Auth | Notes |
 |---|---|---|
-| `POST /v1/audio/transcriptions` | Bearer | Multipart `file` (PCM WAV, any rate/channels), `response_format` = `json`, `text` or `verbose_json`. `model` is accepted and ignored. `language` (ISO-639-1, or comma-separated like `en,pt`) overrides `--languages`. |
+| `POST /v1/audio/transcriptions` | Bearer | Multipart `file` (PCM WAV, any rate/channels), `response_format` = `json`, `text` or `verbose_json`. `model` is accepted and ignored. `language` (ISO-639-1, or comma-separated like `en,pt`) overrides `--languages` when it names a language the model knows. |
 | `GET /v1/models` | Bearer | The loaded model |
 | `GET /health` | None | `{"ok": true}` |
 

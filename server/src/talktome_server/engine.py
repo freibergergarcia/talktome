@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 
 from .audio import SAMPLE_RATE
+from .languages import choose_languages
 
 log = logging.getLogger("talktome")
 
@@ -67,7 +68,8 @@ class ParakeetEngine:
 
     def transcribe(self, samples: np.ndarray, languages: frozenset[str] | None = None) -> str:
         """`languages` overrides the server's default for this request."""
-        return self._thread.submit(self._transcribe, samples, languages or self.languages).result()
+        languages = choose_languages(languages, self.languages)
+        return self._thread.submit(self._transcribe, samples, languages).result()
 
     def _transcribe(self, samples: np.ndarray, languages: frozenset[str] | None) -> str:
         model = self._model

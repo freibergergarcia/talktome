@@ -1,6 +1,6 @@
 import pytest
 
-from talktome_server.languages import parse_languages, token_mask
+from talktome_server.languages import choose_languages, parse_languages, token_mask
 
 VOCAB = ["<unk>", "▁the", "▁при", "ção", "1", ",", "▁Ωμ", "▁"]
 
@@ -42,3 +42,16 @@ def test_no_mask_without_a_known_language(languages):
 )
 def test_parse_languages(value, expected):
     assert parse_languages(value) == (frozenset(expected) if expected else None)
+
+
+@pytest.mark.parametrize(
+    "requested,default,expected",
+    [
+        (frozenset({"pt"}), frozenset({"en"}), {"pt"}),  # a request names its own languages
+        (None, frozenset({"en"}), {"en"}),  # or relies on the server's
+        (frozenset({"zz"}), frozenset({"en"}), {"en"}),  # unknown codes cannot lift the server's guard
+        (frozenset({"zz"}), None, None),
+    ],
+)
+def test_choose_languages(requested, default, expected):
+    assert choose_languages(requested, default) == (frozenset(expected) if expected else None)
