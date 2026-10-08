@@ -145,6 +145,11 @@ documentation for the model name. Audio goes only to the URL you enter.
 | talktome-server (Parakeet v3) | ~0.15–0.45 s on a home network | 25 European languages, auto-detected | Your server |
 | OpenAI-compatible | Depends on provider | Depends on provider | The URL you set |
 
+talktome-server runs Parakeet with its own inference code, written from
+NVIDIA's reference implementation (NeMo) and checked against it. It replaced
+parakeet-mlx; [server/README.md](server/README.md#why-not-parakeet-mlx) shows
+the measurements and the differences.
+
 ## Privacy
 
 - Transcripts are never written to disk by TalkToMe or `talktome-server`.
@@ -180,8 +185,9 @@ cd server && pip install -e '.[dev]' && pytest && ruff check .
 
 ## Credits
 
-- [parakeet-mlx](https://github.com/senstella/parakeet-mlx) (Apache-2.0) runs the model on Apple Silicon.
-- [Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) by NVIDIA (CC-BY-4.0).
+- [Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) by NVIDIA (CC-BY-4.0), with weights converted to MLX format by [mlx-community](https://huggingface.co/mlx-community/parakeet-tdt-0.6b-v3).
+- [NVIDIA NeMo](https://github.com/NVIDIA/NeMo) (Apache-2.0): talktome-server's Parakeet code follows its reference implementation.
+- [MLX](https://github.com/ml-explore/mlx) by Apple (MIT) runs the encoder on the GPU.
 
 ## License
 

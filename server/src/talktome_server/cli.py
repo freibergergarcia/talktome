@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 
 from .engine import DEFAULT_MODEL
+from .languages import parse_languages
 
 CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "talktome"
 TOKEN_FILE = CONFIG_DIR / "token"
@@ -75,7 +76,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
     if not token:
         logging.warning("no token set: any process on this machine can use the server")
 
-    engine = ParakeetEngine(args.model)
+    engine = ParakeetEngine(args.model, languages=parse_languages(args.languages))
     engine.warm_up()
     uvicorn.run(create_app(engine, token), host=args.host, port=args.port, log_level="warning")
 
@@ -122,6 +123,7 @@ def cmd_install_agent(args: argparse.Namespace) -> None:
             str(args.port),
             "--model",
             args.model,
+            *(["--languages", args.languages] if args.languages else []),
         ],
         "EnvironmentVariables": env,
         "RunAtLoad": True,
@@ -171,6 +173,10 @@ def main(argv: list[str] | None = None) -> None:
         p.add_argument("--host", default="127.0.0.1", help="address to listen on (default: 127.0.0.1)")
         p.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"port (default: {DEFAULT_PORT})")
         p.add_argument("--model", default=DEFAULT_MODEL, help=f"Hugging Face model id (default: {DEFAULT_MODEL})")
+        p.add_argument(
+            "--languages",
+            help="languages spoken, e.g. en,pt: rules out other alphabets unless a request names its own",
+        )
 
     serve = sub.add_parser("serve", help="run the server in the foreground")
     add_listen_options(serve)

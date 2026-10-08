@@ -1,0 +1,72 @@
+{
+  "preprocessor": {
+    "sample_rate": 16000,
+    "normalize": "per_feature",
+    "window_size": 0.025,
+    "window_stride": 0.01,
+    "window": "hann",
+    "features": 128,
+    "n_fft": 512,
+    "log": true,
+    "frame_splicing": 1,
+    "pad_to": 0
+  },
+  "encoder": {
+    "feat_in": 128,
+    "feat_out": -1,
+    "n_layers": 24,
+    "d_model": 1024,
+    "use_bias": false,
+    "subsampling": "dw_striding",
+    "subsampling_factor": 8,
+    "subsampling_conv_channels": 256,
+    "causal_downsampling": false,
+    "reduction": null,
+    "reduction_position": null,
+    "reduction_factor": 1,
+    "ff_expansion_factor": 4,
+    "self_attention_model": "rel_pos",
+    "n_heads": 8,
+    "att_context_size": [
+      -1,
+      -1
+    ],
+    "att_context_style": "regular",
+    "xscaling": false,
+    "untie_biases": true,
+    "pos_emb_max_len": 5000,
+    "conv_kernel_size": 9,
+    "conv_norm_type": "batch_norm",
+    "conv_context_size": null
+  },
+  "decoder": {
+    "blank_as_pad": true,
+    "normalization_mode": null,
+    "prednet": {
+      "pred_hidden": 640,
+      "pred_rnn_layers": 2
+    },
+    "vocab_size": 8192
+  },
+  "joint": {
+    "jointnet": {
+      "activation": "relu"
+    },
+    "num_extra_outputs": 5
+  },
+  "model_defaults": {
+    "tdt_durations": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "decoding": {
+    "model_type": "tdt",
+    "greedy": {
+      "max_symbols": 10
+    }
+  }
+}
