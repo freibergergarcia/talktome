@@ -71,7 +71,7 @@ class Encoder:
         """NeMo's RelPositionalEncoding: sinusoids for relative distances
         length-1 down to -(length-1), computed in float32 as NeMo does."""
         if self._positions.shape[0] < 2 * length - 1:
-            longest = max(length, 1500)  # 1500 frames = 120 s, the longest chunk
+            longest = max(length, 750)  # 750 frames = 60 s, the engine's longest piece
             distance = np.arange(longest - 1, -longest, -1, dtype=np.float32)[:, None]
             rate = np.exp(np.arange(0, self.width, 2, dtype=np.float32) * np.float32(-math.log(10000.0) / self.width))
             table = np.zeros((len(distance), self.width), dtype=np.float32)

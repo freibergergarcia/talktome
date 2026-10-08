@@ -14,7 +14,7 @@ and checked against it:
 | `conformer.py` | FastConformer encoder | MLX (GPU) |
 | `tdt.py` | Prediction network, joint, greedy TDT search | NumPy (CPU) |
 | `parakeet.py` | Loads the weights, turns tokens into text | |
-| `engine.py` | One model thread; splits recordings over 120 s | |
+| `engine.py` | One model thread; cuts recordings over 60 s at pauses | |
 
 The weights are NVIDIA's, converted to safetensors by mlx-community
 (`mlx-community/parakeet-tdt-0.6b-v3`, pinned to a revision whose tensors
