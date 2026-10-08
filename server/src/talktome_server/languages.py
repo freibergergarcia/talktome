@@ -31,14 +31,19 @@ def parse_languages(value: str | None) -> frozenset[str] | None:
     return frozenset(codes) or None
 
 
+def alphabets(languages: frozenset[str] | None) -> frozenset[str] | None:
+    """The alphabets of the languages the model knows; codes it does not know
+    are ignored (it cannot write them anyway). None means no restriction."""
+    return frozenset(ALPHABETS[code] for code in languages or () if code in ALPHABETS) or None
+
+
 def token_mask(vocabulary: list[str], languages: frozenset[str] | None) -> np.ndarray | None:
     """True for tokens whose letters all belong to the languages' alphabets.
-    Digits, punctuation and the word marker belong to every language. None
-    means no restriction: no languages given, or one the model does not know."""
-    if not languages or not languages <= ALPHABETS.keys():
+    Digits, punctuation and the word marker belong to every language."""
+    allowed = alphabets(languages)
+    if allowed is None:
         return None
-    alphabets = {ALPHABETS[code] for code in languages}
-    return np.array([all(_alphabet(ch) in alphabets for ch in token if ch.isalpha()) for token in vocabulary])
+    return np.array([all(_alphabet(ch) in allowed for ch in token if ch.isalpha()) for token in vocabulary])
 
 
 def _alphabet(letter: str) -> str:

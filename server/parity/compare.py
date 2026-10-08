@@ -11,13 +11,16 @@ and the word error rate of both against the human transcript.
 
 import argparse
 import json
+import os
 import re
 import sys
 import time
 import unicodedata
 
+import mlx.core as mx
 import numpy as np
 
+from talktome_server.engine import PINNED_REVISIONS
 from talktome_server.languages import parse_languages
 from talktome_server.parakeet import Parakeet
 
@@ -32,7 +35,13 @@ def main() -> None:
     args = parser.parse_args()
 
     rows = [json.loads(line) for line in open(args.reference)][: args.limit]
-    model = Parakeet.load(args.model)
+    revision = PINNED_REVISIONS.get(args.model)
+    model = Parakeet.load(args.model, revision=revision)
+    print(
+        f"ours: {args.model}@{revision or 'latest'}, MLX {mx.__version__}, "
+        f"MLX_ENABLE_TF32={os.environ.get('MLX_ENABLE_TF32', 'unset (TF32 on M5)')}; "
+        f"reference: NeMo {rows[0].get('nemo_version', '?')} {rows[0].get('nemo_model', '')}"
+    )
     languages = parse_languages(args.languages)
     model.transcribe(np.zeros(16_000, dtype=np.float32))  # compile kernels before timing
 

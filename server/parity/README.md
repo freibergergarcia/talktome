@@ -56,8 +56,9 @@ Parakeet was trained on short utterances. NeMo itself (batch 1, exact
 features) sometimes stops emitting after a sentence ends when one pass covers
 a long stretch that starts mid-speech: on one 30 s piece it transcribed the
 first 16 s and then only blanks, exactly as our code does. Recordings longer
-than 60 s are therefore cut at pauses (`engine.split_at_pauses`), so every
-piece starts and ends in silence, like the utterances the model was trained on.
+than 60 s are therefore cut at the quietest moment near each 60 s limit
+(`engine.split_at_pauses`), normally a pause, so pieces start and end
+between words like the utterances the model was trained on.
 
 Twelve LibriSpeech chapters (5 min on average) joined back together,
 compared with NeMo's transcripts of the individual utterances:
@@ -77,7 +78,13 @@ features were as good or better than parakeet-mlx's at every length:
 ## Memory
 
 MLX keeps freed GPU buffers for reuse, and every new clip length allocates
-new ones. Without a limit, the previous server's process had reached 20 GB
-after a day, most likely this cache. With
-`mx.set_cache_limit(1 GB)`, 200 requests of 1-70 s stay at 2.45 GB of weights
-plus ~1.1 GB of cache (3.9 GB peak).
+new ones. 200 requests of 1-58 s (single process, M5 Max):
+
+| | p50 latency | p99 latency | Buffer cache after |
+|---|---|---|---|
+| No cache limit (as before) | 3.60 ms per audio second | 22.3 | 35.7 GB |
+| `mx.set_cache_limit(1 GB)` (now) | 3.43 ms per audio second | 15.5 | 1.1 GB |
+
+The unlimited cache explains the previous server's process reaching 20 GB
+after a day. With the limit the process holds 2.45 GB of weights plus at
+most ~1.1 GB of cache (3.9 GB peak during a 60 s clip).

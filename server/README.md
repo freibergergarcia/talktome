@@ -18,7 +18,8 @@ and checked against it:
 
 The weights are NVIDIA's, converted to safetensors by mlx-community
 (`mlx-community/parakeet-tdt-0.6b-v3`, pinned to a revision whose tensors
-match NVIDIA's `.nemo` checkpoint bit for bit). `parity/` holds the scripts
+hold the same float32 values as NVIDIA's `.nemo` checkpoint, with convolution
+kernels in MLX's layout). `parity/` holds the scripts
 that compare transcripts with NeMo's; see its README.
 
 ## Install

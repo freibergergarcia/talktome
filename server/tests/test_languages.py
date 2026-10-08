@@ -20,9 +20,13 @@ def test_mixed_scripts_keep_both():
     assert keep.tolist() == [True, True, False, True, True, True, True, True]
 
 
-@pytest.mark.parametrize("languages", [None, frozenset({"en", "ja"})])
-def test_no_mask_when_unrestricted_or_unknown(languages):
-    # A language the model does not know gives no basis for a filter.
+def test_unknown_codes_are_ignored():
+    # The model cannot write Japanese anyway; English still rules out the rest.
+    assert token_mask(VOCAB, frozenset({"en", "ja"})).tolist() == token_mask(VOCAB, frozenset({"en"})).tolist()
+
+
+@pytest.mark.parametrize("languages", [None, frozenset({"ja"})])
+def test_no_mask_without_a_known_language(languages):
     assert token_mask(VOCAB, languages) is None
 
 

@@ -17,15 +17,17 @@ from .audio import SAMPLE_RATE
 log = logging.getLogger("talktome")
 
 DEFAULT_MODEL = "mlx-community/parakeet-tdt-0.6b-v3"
-# The snapshot whose 697 tensors were checked bit for bit against NVIDIA's
-# .nemo checkpoint. Other models load from their latest revision.
+# The snapshot whose 697 tensors were checked against NVIDIA's .nemo
+# checkpoint: identical float32 values (convolutions in MLX's layout).
+# Other models load from their latest revision.
 PINNED_REVISIONS = {DEFAULT_MODEL: "ed2b7e8c15f9aaa0b5772e2efb986255eaef7e15"}
 
 # Parakeet was trained on short utterances. Long recordings are cut into
-# pieces of at most LONGEST_PIECE, each cut at the quietest moment of the
-# piece's last PAUSE_SEARCH, so every piece starts and ends in a pause and
-# no word is split. Cutting mid-speech at fixed points instead made some
-# pieces lose their second half (see server/parity/README.md).
+# pieces of at most LONGEST_PIECE, each cut at the quietest 300 ms of the
+# piece's last PAUSE_SEARCH. In speech that is nearly always a pause between
+# words; with no pause at all it is still the least harmful place. Cutting at
+# fixed points mid-speech instead made some pieces lose their second half
+# (see server/parity/README.md).
 LONGEST_PIECE = 60 * SAMPLE_RATE
 PAUSE_SEARCH = 15 * SAMPLE_RATE
 # A clip shorter than one 25 ms analysis window has nothing to decode.

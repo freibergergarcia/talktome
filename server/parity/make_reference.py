@@ -17,6 +17,7 @@ import warnings
 warnings.filterwarnings("ignore")
 logging.disable(logging.WARNING)
 
+import nemo  # noqa: E402
 import torch  # noqa: E402
 from nemo.collections.asr.models import ASRModel  # noqa: E402
 
@@ -32,6 +33,8 @@ def main() -> None:
     with open(output, "w") as out:
         for row, hypothesis in zip(rows, hypotheses, strict=True):
             row["nemo"] = hypothesis.text.strip()
+            row["nemo_version"] = nemo.__version__
+            row["nemo_model"] = MODEL
             out.write(json.dumps(row, ensure_ascii=False) + "\n")
     print(f"{len(rows)} clips -> {output}")
 
