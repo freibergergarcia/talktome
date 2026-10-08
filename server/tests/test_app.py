@@ -30,6 +30,12 @@ def test_transcribes_json(client, auth, engine):
     assert len(engine.calls[0]) == 16_000
 
 
+def test_language_field_reaches_the_engine(client, auth, engine):
+    upload(client, make_wav(), auth, language="en, pt-BR")
+    upload(client, make_wav(), auth)
+    assert engine.languages == [frozenset({"en", "pt"}), None]
+
+
 def test_text_and_verbose_formats(client, auth):
     assert upload(client, make_wav(), auth, response_format="text").text == "hello world"
     verbose = upload(client, make_wav(seconds=2), auth, response_format="verbose_json").json()

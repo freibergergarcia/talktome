@@ -19,6 +19,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from . import __version__
 from .audio import SAMPLE_RATE, AudioTooLong, UnsupportedAudio, decode_wav, rms
+from .languages import parse_languages
 
 log = logging.getLogger("talktome")
 
@@ -32,7 +33,7 @@ class Engine(Protocol):
     model_id: str
     min_samples: int
 
-    def transcribe(self, samples: np.ndarray) -> str: ...
+    def transcribe(self, samples: np.ndarray, languages: frozenset[str] | None = None) -> str: ...
 
 
 class _BodyTooLarge(Exception):
@@ -121,7 +122,8 @@ def create_app(engine: Engine, token: str | None) -> FastAPI:
     async def transcriptions(
         file: UploadFile = File(...),
         model: str | None = Form(None),  # accepted for compatibility; the server runs one model
-        language: str | None = Form(None),  # Parakeet detects the language itself
+        # ISO-639-1, or several comma-separated: tokens in other alphabets are ruled out.
+        language: str | None = Form(None),
         response_format: str = Form("json"),
     ):
         if response_format not in ("json", "text", "verbose_json"):
@@ -139,7 +141,10 @@ def create_app(engine: Engine, token: str | None) -> FastAPI:
         seconds = len(samples) / SAMPLE_RATE
 
         started = time.perf_counter()
-        text = await run_in_threadpool(engine.transcribe, samples) if len(samples) >= engine.min_samples else ""
+        languages = parse_languages(language)
+        text = (
+            await run_in_threadpool(engine.transcribe, samples, languages) if len(samples) >= engine.min_samples else ""
+        )
         inference_ms = round((time.perf_counter() - started) * 1000)
         # Log shape only, never the transcript: dictation can hold anything.
         # Loudness and length tell "mic captured silence" apart from "model

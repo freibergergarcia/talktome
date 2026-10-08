@@ -180,8 +180,9 @@ cd server && pip install -e '.[dev]' && pytest && ruff check .
 
 ## Credits
 
-- [parakeet-mlx](https://github.com/senstella/parakeet-mlx) (Apache-2.0) runs the model on Apple Silicon.
-- [Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) by NVIDIA (CC-BY-4.0).
+- [Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) by NVIDIA (CC-BY-4.0), with weights converted to MLX format by [mlx-community](https://huggingface.co/mlx-community/parakeet-tdt-0.6b-v3).
+- [NVIDIA NeMo](https://github.com/NVIDIA/NeMo) (Apache-2.0): talktome-server's Parakeet code follows its reference implementation.
+- [MLX](https://github.com/ml-explore/mlx) by Apple (MIT) runs the encoder on the GPU.
 
 ## License
 

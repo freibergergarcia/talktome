@@ -14,9 +14,11 @@ class FakeEngine:
 
     def __init__(self):
         self.calls = []
+        self.languages = []
 
-    def transcribe(self, samples):
+    def transcribe(self, samples, languages=None):
         self.calls.append(samples)
+        self.languages.append(languages)
         return "hello world"
 
 
