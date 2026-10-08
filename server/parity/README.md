@@ -12,6 +12,9 @@ reference implementation, NeMo, and show how fast it does it.
 
 Install NeMo in its own virtual environment; it pulls in PyTorch and much more.
 
+These scripts write and print transcripts, which the server never does. Use
+them only on public test sets, never on recordings of real dictation.
+
 ```sh
 # manifest.jsonl: {"id": ..., "audio": "/path/16khz.flac", "text": "human transcript"} per line
 python make_reference.py manifest.jsonl reference.jsonl          # NeMo env

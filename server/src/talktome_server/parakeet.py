@@ -29,9 +29,19 @@ class UnsupportedModel(ValueError):
 class Parakeet:
     def __init__(self, config: dict, weights: dict[str, mx.array]):
         check_config(config)
-        _check_weights(config, weights)
-        encoder = config["encoder"]
         self.vocabulary: list[str] = config["joint"]["vocabulary"]
+        try:
+            _check_weights(config, weights)
+            self._build(config, weights)
+        except KeyError as missing:
+            raise UnsupportedModel(f"the weights lack {missing}") from missing
+        # Keyed by alphabet set, not by the requested codes: at most a handful
+        # of entries whatever clients send.
+        self._masks: dict[frozenset[str] | None, np.ndarray | None] = {}
+        self._space_before_punctuation = _space_before_punctuation(self.vocabulary)
+
+    def _build(self, config: dict, weights: dict[str, mx.array]) -> None:
+        encoder = config["encoder"]
         self.encoder = Encoder(weights, layers=encoder["n_layers"], heads=encoder["n_heads"])
         self._joint_w, self._joint_b = weights["joint.enc.weight"], weights["joint.enc.bias"]
 
@@ -50,10 +60,6 @@ class Parakeet:
             durations=config["model_defaults"]["tdt_durations"],
             max_symbols=config["decoding"]["greedy"]["max_symbols"],
         )
-        # Keyed by alphabet set, not by the requested codes: at most a handful
-        # of entries whatever clients send.
-        self._masks: dict[frozenset[str] | None, np.ndarray | None] = {}
-        self._space_before_punctuation = _space_before_punctuation(self.vocabulary)
 
     @classmethod
     def load(cls, model: str, revision: str | None = None) -> "Parakeet":
@@ -184,6 +190,9 @@ def check_config(config: dict) -> None:
     heads, width = at("encoder", "n_heads"), at("encoder", "d_model")
     if not (positive(heads) and positive(width) and width % heads == 0):
         wrong.append(f"encoder.n_heads={heads!r} (expected to divide d_model={width!r})")
+    vocabulary = at("joint", "vocabulary")
+    if not (isinstance(vocabulary, list) and vocabulary and all(isinstance(piece, str) for piece in vocabulary)):
+        wrong.append("joint.vocabulary (expected a list of token strings)")
     durations, extra = at("model_defaults", "tdt_durations"), at("joint", "num_extra_outputs")
     if not (isinstance(durations, list) and durations and all(type(d) is int and d >= 0 for d in durations)) or (
         len(durations) != extra

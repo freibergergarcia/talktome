@@ -57,7 +57,9 @@ to `TalkToMeTests.sources` in `app/project.yml`.
 ## Rules
 
 - **Never log or persist transcript text.** Not in the app, not in the server,
-  not in debug logs. Log lengths, timings and loudness instead.
+  not in debug logs. Log lengths, timings and loudness instead. The one
+  exception is `server/parity/`, which compares transcripts of public test
+  sets (LibriSpeech, FLEURS) with NeMo's; never run it on anyone's dictation.
 - **No third-party code in the app.** Apple frameworks only. People run this
   on work machines; a dependency-free binary is a feature.
 - **One typeface (SF Pro) and the tokens in `Theme.swift`.** Do not introduce

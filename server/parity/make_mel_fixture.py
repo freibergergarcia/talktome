@@ -12,7 +12,6 @@ import sys
 
 import numpy as np
 import torch
-
 from make_reference import load_model  # same pinned checkpoint
 
 
