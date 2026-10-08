@@ -9,7 +9,8 @@ below NeMo's own float32 error.
 
 import numpy as np
 
-SAMPLE_RATE = 16_000
+from .audio import SAMPLE_RATE
+
 N_FFT = 512
 HOP = 160  # 10 ms
 WINDOW = 400  # 25 ms

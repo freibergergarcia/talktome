@@ -10,7 +10,6 @@ features.py (log-mel), conformer.py (encoder, MLX on the GPU) and tdt.py
 import json
 import re
 import unicodedata
-from pathlib import Path
 
 import mlx.core as mx
 import numpy as np
@@ -57,15 +56,11 @@ class Parakeet:
 
     @classmethod
     def load(cls, model: str, revision: str | None = None) -> "Parakeet":
-        """A Hugging Face repo id (downloaded once, then cached) or a local
-        directory holding config.json and model.safetensors."""
-        if Path(model).is_dir():
-            config_path, weights_path = Path(model) / "config.json", Path(model) / "model.safetensors"
-        else:
-            from huggingface_hub import hf_hub_download
+        """A Hugging Face repo id: downloaded once, then read from the cache."""
+        from huggingface_hub import hf_hub_download
 
-            config_path = hf_hub_download(model, "config.json", revision=revision)
-            weights_path = hf_hub_download(model, "model.safetensors", revision=revision)
+        config_path = hf_hub_download(model, "config.json", revision=revision)
+        weights_path = hf_hub_download(model, "model.safetensors", revision=revision)
         with open(config_path) as file:
             config = json.load(file)
         return cls(config, mx.load(str(weights_path)))
