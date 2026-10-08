@@ -17,7 +17,11 @@ targets:
     configFiles:
       Debug: Config/Base.xcconfig
       Release: Config/Base.xcconfig
-    sources: [TalkToMe]
+    sources:
+      - path: TalkToMe
+      # Run from Settings to set up talktome-server on this Mac.
+      - path: ../scripts/install-local-server.sh
+        buildPhase: resources
     entitlements:
       path: TalkToMe/TalkToMe.entitlements
       properties:
@@ -47,6 +51,7 @@ targets:
       - path: TalkToMe/EventLog.swift
       - path: TalkToMe/Stats.swift
       - path: TalkToMe/Wire.swift
+      - path: TalkToMe/LocalServerSetup.swift
     settings:
       base:
         CODE_SIGN_IDENTITY: "-"

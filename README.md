@@ -23,7 +23,8 @@ control. No account, no subscription, no cloud unless you point it at one.
 - **Three ways to transcribe:**
   - **On this Mac:** Apple's on-device speech model. Zero setup, nothing leaves the Mac.
   - **Your own server:** `talktome-server` runs NVIDIA Parakeet on any Apple
-    Silicon Mac on your network. Well under half a second per sentence, and it detects 25 languages on its own.
+    Silicon Mac on your network, or on this one, set up from Settings in one
+    click. Well under half a second per sentence, and it detects 25 languages on its own.
   - **Any OpenAI-compatible endpoint:** anything that implements
     `POST /v1/audio/transcriptions`.
 - **Automatic fallback** to on-device transcription when the server is
@@ -73,7 +74,14 @@ Out of the box it transcribes on-device. That's it: tap right ⌘ and talk.
 ### 2. Optional: run your own server
 
 Skip this if you transcribe on-device or already have a compatible service
-(step 3). On the Mac that will do the transcribing (it can be the same Mac):
+(step 3).
+
+**On the Mac you dictate on:** TalkToMe → **Settings… → Transcription** →
+**Server** → **Set up Parakeet on this Mac…**. It installs everything, with
+its own copy of Python, downloads the model (about 2.6 GB in all) and switches
+TalkToMe over to it. Needs Apple Silicon.
+
+**On another Mac**, the one that will do the transcribing:
 
 ```sh
 python3 -m venv ~/.local/share/talktome-server/venv

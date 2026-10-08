@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var microphones = Microphones.inputs()
     @State private var testResult: TestResult?
     @State private var testing = false
+    @State private var settingUpLocalServer = false
 
     /// Set by snapshot mode so screenshots never show the real device name.
     static var microphoneOverride: String?
@@ -29,6 +30,7 @@ struct SettingsView: View {
         .task { locales = await AppleTranscriber.supportedLocales() }
         .onChange(of: settings.remoteURL) { Task { await dictation.refreshRemote() } }
         .onChange(of: settings.engine) { Task { await dictation.refreshRemote() } }
+        .sheet(isPresented: $settingUpLocalServer) { LocalServerSheet(settings: settings, dictation: dictation) }
     }
 
     // MARK: - Sections
@@ -68,6 +70,9 @@ struct SettingsView: View {
                         .disabled(testing || settings.remoteBaseURL == nil)
                     Spacer()
                     testLabel
+                }
+                if LocalServer.isSupported {
+                    Button("Set up Parakeet on this Mac…") { settingUpLocalServer = true }
                 }
             }
 

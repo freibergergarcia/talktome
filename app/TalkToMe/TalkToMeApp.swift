@@ -128,6 +128,19 @@ enum Snapshots {
         save(HomePanel(dictation: model), "home", to: dir)
         save(SettingsView(settings: settings, dictation: model), "settings", to: dir)
 
+        let setups: [(String, LocalServer.State, InstalledAgent?)] = [
+            ("local-server", .idle, nil),
+            ("local-server-progress", .working(.model, download: 0.42), nil),
+            ("local-server-installed", .idle, InstalledAgent()),
+        ]
+        for (name, state, installed) in setups {
+            let server = LocalServer()
+            server.loadPreview(state)
+            // A sheet takes its background from its window; the snapshot has none.
+            let sheet = LocalServerSheet(settings: settings, dictation: model, server: server, installed: installed)
+            save(sheet.background(Color(nsColor: .windowBackgroundColor)), name, to: dir)
+        }
+
         let phases: [(String, Dictation.Phase)] = [
             ("pill-recording", .recording),
             ("pill-transcribing", .transcribing),
