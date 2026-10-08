@@ -145,6 +145,11 @@ documentation for the model name. Audio goes only to the URL you enter.
 | talktome-server (Parakeet v3) | ~0.15–0.45 s on a home network | 25 European languages, auto-detected | Your server |
 | OpenAI-compatible | Depends on provider | Depends on provider | The URL you set |
 
+talktome-server runs Parakeet with its own inference code, written from
+NVIDIA's reference implementation (NeMo) and checked against it. It replaced
+parakeet-mlx; [server/README.md](server/README.md#why-not-parakeet-mlx) shows
+the measurements and the differences.
+
 ## Privacy
 
 - Transcripts are never written to disk by TalkToMe or `talktome-server`.

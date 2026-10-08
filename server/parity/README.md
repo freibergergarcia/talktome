@@ -2,56 +2,77 @@
 
 talktome-server runs Parakeet with its own code (`features.py`, `conformer.py`,
 `tdt.py`). These scripts check that it transcribes exactly like NVIDIA's
-reference implementation, NeMo, and show how fast it does it.
+reference implementation, NeMo, and measure it against parakeet-mlx, the
+library the server used before.
 
 | Script | Needs | Does |
 |---|---|---|
 | `make_reference.py` | `nemo_toolkit[asr]` | Transcribes a manifest with NeMo |
-| `compare.py` | this package, `mlx`, `soundfile` | Transcribes the same audio with our code; counts identical transcripts, WER, speed |
+| `compare.py` | an engine, `soundfile` | Transcribes the same audio; counts identical transcripts, WER, speed |
+| `speed.py` | an engine, `soundfile` | Median time per clip at 2, 10, 60 and 120 s |
+| `engines.py` | | Loads `ours` (this package with `[mlx]`) or `parakeet-mlx` (that package), each as its server ran it |
 | `make_mel_fixture.py` | `nemo_toolkit[asr]` | Regenerates `tests/fixtures/nemo_log_mel.npz` |
 
 Install NeMo in its own virtual environment; it pulls in PyTorch and much more.
+parakeet-mlx is needed only to measure it, and can share NeMo's environment.
 
 These scripts write and print transcripts, which the server never does. Use
 them only on public test sets, never on recordings of real dictation.
 
 ```sh
 # manifest.jsonl: {"id": ..., "audio": "/path/16khz.flac", "text": "human transcript"} per line
-python make_reference.py manifest.jsonl reference.jsonl          # NeMo env
-MLX_ENABLE_TF32=0 python compare.py reference.jsonl              # talktome-server env
+python make_reference.py manifest.jsonl reference.jsonl              # NeMo env
+python compare.py reference.jsonl                                    # talktome-server env
+python compare.py reference.jsonl --engine parakeet-mlx              # parakeet-mlx env
+python speed.py reference.jsonl [--engine parakeet-mlx]
 ```
+
+Our engine is exact float32 by default; `MLX_ENABLE_TF32=1` measures the
+faster TF32 mode instead (see below).
 
 ## Results (2026-10-08, Mac Studio M5 Max, NeMo 3.0.0, MLX 0.32.3)
 
-Transcripts compared character for character with NeMo's, including
-punctuation and capitals.
+Ours and parakeet-mlx 0.5.3 measured with these scripts, each engine as its
+server runs it. Transcripts are compared character for character with NeMo's,
+including punctuation and capitals.
 
-| Set | Clips | Identical, exact float32 | Identical, TF32 | WER ours / NeMo |
+| Set | Clips | Ours | Ours, TF32 | parakeet-mlx |
 |---|---|---|---|---|
-| LibriSpeech test-clean (English) | 2,620 | 2,620 (100%) | 2,597 (99.1%) | 2.16% / 2.16% |
-| FLEURS pt_br test (Portuguese) | 919 | 919 (100%) | 901 (98.0%) | 4.95% / 4.95% |
+| LibriSpeech test-clean (English) | 2,620 | 2,620 (100%) | 2,597 (99.1%) | 1,889 (72.1%) |
+| FLEURS pt_br test (Portuguese) | 919 | 919 (100%) | 901 (98.0%) | 699 (76.1%) |
 
-WER here uses `compare.py`'s plain normalization (lowercase, no
-punctuation), applied to both sides alike.
+Word error rate (`compare.py`'s plain normalization: lowercase, no
+punctuation, both sides alike):
+
+| Set | NeMo | Ours | parakeet-mlx |
+|---|---|---|---|
+| LibriSpeech test-clean | 2.16% | 2.16% | 2.16% |
+| FLEURS pt_br test | 4.95% | 4.95% | 4.92% |
+
+parakeet-mlx's transcripts differ from NeMo's in words on 222 English and
+152 Portuguese clips, and only in punctuation or capitals on 577 more; on these
+short clips (7 and 13 s on average) its error rate is the same. The gap shows
+on longer dictations (below).
 
 On M5-class GPUs MLX computes float32 matrix products in TF32 unless
-`MLX_ENABLE_TF32=0`. The server sets that by default; TF32 is ~25% faster at
-the encoder and leaves the error rate unchanged, but a few transcripts then
+`MLX_ENABLE_TF32=0`. Our server sets that by default; TF32 is faster at the
+encoder and leaves the error rate unchanged, but a few transcripts then
 differ from NeMo's by a word or a comma.
 
-Median latency per clip (ms), against parakeet-mlx 0.5.3 as the server used it
-before (bfloat16 weights):
+Median time per clip (`speed.py`):
 
 | Clip | parakeet-mlx | Ours, exact | Ours, TF32 |
 |---|---|---|---|
-| 2 s | 30 | 18 | 16 |
-| 10 s | 64 | 37 | 29 |
-| 60 s | 309 | 197 | 142 |
-| 120 s | 634 | 393 | 281 |
+| 2 s | 39 ms | 19 ms | 15 ms |
+| 10 s | 68 ms | 40 ms | 31 ms |
+| 60 s | 311 ms | 199 ms | 144 ms |
+| 120 s | 643 ms | 410 ms | 309 ms |
 
-One pass per clip here; the server splits recordings over 60 s (below). Our
-peak GPU memory is ~1 GB higher (float32 weights instead of bfloat16): on
-Apple's M5 GPU float32 is both faster and exact.
+parakeet-mlx runs 120 s in one pass, as the old server did; ours cuts it at
+pauses into pieces of at most 60 s (below). Over the whole sets ours runs at 223x (English)
+and 289x (Portuguese) real time, parakeet-mlx at 138x and 182x. Our peak GPU
+memory is ~1 GB higher (float32 weights instead of bfloat16): on Apple's M5
+GPU float32 is both faster and exact.
 
 ## Long recordings
 
@@ -64,7 +85,8 @@ than 60 s are therefore cut at the quietest moment near each 60 s limit
 between words like the utterances the model was trained on.
 
 Twelve LibriSpeech chapters (5 min on average) joined back together,
-compared with NeMo's transcripts of the individual utterances:
+compared with NeMo's transcripts of the individual utterances (one-off
+scripts while switching engines, not the scripts here):
 
 | Engine | WER |
 |---|---|

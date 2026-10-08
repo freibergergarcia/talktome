@@ -1,73 +1,62 @@
-"""Transcribe a reference set with talktome-server's Parakeet and compare
-against NVIDIA NeMo's own transcripts of the same audio.
+"""Transcribe a reference set and compare against NVIDIA NeMo's own
+transcripts of the same audio.
 
-    python parity/compare.py reference.jsonl [--limit N] [--languages en,pt]
+    python parity/compare.py reference.jsonl [--engine parakeet-mlx] [--limit N] [--languages en,pt]
 
 Each line of reference.jsonl: {"id", "audio" (path), "text" (human
 transcript), "nemo" (NeMo's transcript)}; make_reference.py writes it.
 Reports how many transcripts are identical to NeMo's, character for character,
-and the word error rate of both against the human transcript.
+the word error rate of both against the human transcript, and the speed.
 """
 
 import argparse
 import json
-import os
 import re
 import sys
 import time
 import unicodedata
 
-import mlx.core as mx
 import numpy as np
-
-from talktome_server.engine import PINNED_REVISIONS
-from talktome_server.languages import parse_languages
-from talktome_server.parakeet import Parakeet
+from engines import ENGINES, MODEL, load
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("reference")
-    parser.add_argument("--model", default="mlx-community/parakeet-tdt-0.6b-v3")
+    parser.add_argument("--engine", choices=ENGINES, default="ours")
+    parser.add_argument("--model", default=MODEL)
     parser.add_argument("--limit", type=int)
-    parser.add_argument("--languages")
+    parser.add_argument("--languages", help="ours only")
     parser.add_argument("--show", type=int, default=5, help="print this many differences")
     args = parser.parse_args()
 
     rows = [json.loads(line) for line in open(args.reference)][: args.limit]
-    revision = PINNED_REVISIONS.get(args.model)
-    model = Parakeet.load(args.model, revision=revision)
-    print(
-        f"ours: {args.model}@{revision or 'latest'}, MLX {mx.__version__}, "
-        f"MLX_ENABLE_TF32={os.environ.get('MLX_ENABLE_TF32', 'unset (TF32 on M5)')}; "
-        f"reference: NeMo {rows[0].get('nemo_version', '?')} {rows[0].get('nemo_model', '')}"
-    )
-    languages = parse_languages(args.languages)
-    model.transcribe(np.zeros(16_000, dtype=np.float32))  # compile kernels before timing
+    description, transcribe = load(args.engine, args.model, args.languages)
+    print(f"{description}; reference: NeMo {rows[0].get('nemo_version', '?')} {rows[0].get('nemo_model', '')}")
 
     same = 0
-    errors = {"ours": 0, "nemo": 0}
+    errors = {"engine": 0, "nemo": 0}
     words = 0
     audio_seconds = compute_seconds = 0.0
     shown = 0
     for row in rows:
         samples = read_audio(row["audio"])
         started = time.perf_counter()
-        ours = model.text(model.transcribe(samples, languages))
+        text = transcribe(samples)
         compute_seconds += time.perf_counter() - started
         audio_seconds += len(samples) / 16_000
-        same += ours == row["nemo"]
+        same += text == row["nemo"]
         reference = normalize(row["text"])
         words += len(reference)
-        errors["ours"] += edit_distance(reference, normalize(ours))
+        errors["engine"] += edit_distance(reference, normalize(text))
         errors["nemo"] += edit_distance(reference, normalize(row["nemo"]))
-        if ours != row["nemo"] and shown < args.show:
+        if text != row["nemo"] and shown < args.show:
             shown += 1
-            print(f"{row['id']}\n  nemo: {row['nemo']}\n  ours: {ours}", file=sys.stderr)
+            print(f"{row['id']}\n  nemo: {row['nemo']}\n  {args.engine}: {text}", file=sys.stderr)
 
     print(f"{len(rows)} clips, {audio_seconds / 60:.1f} min of audio")
     print(f"identical to NeMo: {same}/{len(rows)} ({100 * same / len(rows):.2f}%)")
-    print(f"WER ours {100 * errors['ours'] / words:.2f}%  NeMo {100 * errors['nemo'] / words:.2f}%")
+    print(f"WER {args.engine} {100 * errors['engine'] / words:.2f}%  NeMo {100 * errors['nemo'] / words:.2f}%")
     per_clip = 1000 * compute_seconds / len(rows)
     print(f"speed: {audio_seconds / compute_seconds:.0f}x real time ({per_clip:.1f} ms per clip)")
 
