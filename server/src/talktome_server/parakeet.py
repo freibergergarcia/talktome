@@ -29,6 +29,7 @@ class UnsupportedModel(ValueError):
 class Parakeet:
     def __init__(self, config: dict, weights: dict[str, mx.array]):
         check_config(config)
+        _check_weights(config, weights)
         encoder = config["encoder"]
         self.vocabulary: list[str] = config["joint"]["vocabulary"]
         self.encoder = Encoder(weights, layers=encoder["n_layers"], heads=encoder["n_heads"])
@@ -86,6 +87,33 @@ class Parakeet:
         return self._masks[key]
 
 
+def _check_weights(config: dict, weights: dict[str, mx.array]) -> None:
+    """The weights must have exactly the shape the config describes."""
+    vocabulary = config["joint"]["vocabulary"]
+    outputs = len(vocabulary) + 1 + len(config["model_defaults"]["tdt_durations"])
+    layers = config["encoder"]["n_layers"]
+    lstm_layers = config["decoder"]["prednet"]["pred_rnn_layers"]
+    lstm = "decoder.prediction.dec_rnn.lstm"
+    problems = [
+        f"{name}: {why}"
+        for name, why, ok in [
+            ("joint.joint_net.2.weight", f"{outputs} rows", weights["joint.joint_net.2.weight"].shape[0] == outputs),
+            (
+                "decoder.prediction.embed.weight",
+                f"{len(vocabulary) + 1} rows",
+                weights["decoder.prediction.embed.weight"].shape[0] == len(vocabulary) + 1,
+            ),
+            (f"encoder.layers.{layers - 1}", "present", f"encoder.layers.{layers - 1}.norm_out.weight" in weights),
+            (f"encoder.layers.{layers}", "absent", f"encoder.layers.{layers}.norm_out.weight" not in weights),
+            (f"{lstm}.{lstm_layers - 1}", "present", f"{lstm}.{lstm_layers - 1}.Wx" in weights),
+            (f"{lstm}.{lstm_layers}", "absent", f"{lstm}.{lstm_layers}.Wx" not in weights),
+        ]
+        if not ok
+    ]
+    if problems:
+        raise UnsupportedModel("weights do not match config.json: " + ", ".join(problems))
+
+
 def _space_before_punctuation(vocabulary: list[str]) -> re.Pattern:
     """NeMo's extract_punctuation_from_vocab: punctuation characters of
     ordinary tokens (not <special>, not word-initial)."""
@@ -95,9 +123,9 @@ def _space_before_punctuation(vocabulary: list[str]) -> re.Pattern:
     return re.compile(r"(\s)(" + "|".join(re.escape(mark) for mark in sorted(marks)) + ")")
 
 
-# Every configuration value the code depends on, by path in config.json.
-# Layer counts, widths, kernel sizes and TDT durations are read from the
-# config and weights instead.
+# Every fixed configuration value the code depends on, by path in
+# config.json. Counts and sizes are read from the config and the weights,
+# and checked for consistency below and in _check_weights.
 _REQUIRED = {
     ("preprocessor", "sample_rate"): 16_000,
     ("preprocessor", "window_size"): 0.025,
@@ -131,15 +159,35 @@ _REQUIRED = {
 def check_config(config: dict) -> None:
     """Fail at load, not with wrong transcripts, on a model this code does not
     implement."""
-    wrong = []
-    for path, expected in _REQUIRED.items():
+
+    def at(*path: str) -> object:
         value = config
         for key in path:
             value = value.get(key) if isinstance(value, dict) else None
-        if value != expected:
-            wrong.append(f"{'.'.join(path)}={value!r} (expected {expected!r})")
-    max_symbols = config.get("decoding", {}).get("greedy", {}).get("max_symbols")
-    if not isinstance(max_symbols, int) or max_symbols < 1:
-        wrong.append(f"decoding.greedy.max_symbols={max_symbols!r} (expected a positive integer)")
+        return value
+
+    def positive(value: object) -> bool:
+        return type(value) is int and value > 0  # bool is an int subclass: excluded
+
+    wrong = [
+        f"{'.'.join(path)}={at(*path)!r} (expected {expected!r})"
+        for path, expected in _REQUIRED.items()
+        if at(*path) != expected
+    ]
+    for path in [
+        ("decoding", "greedy", "max_symbols"),
+        ("encoder", "n_layers"),
+        ("decoder", "prednet", "pred_rnn_layers"),
+    ]:
+        if not positive(at(*path)):
+            wrong.append(f"{'.'.join(path)}={at(*path)!r} (expected a positive integer)")
+    heads, width = at("encoder", "n_heads"), at("encoder", "d_model")
+    if not (positive(heads) and positive(width) and width % heads == 0):
+        wrong.append(f"encoder.n_heads={heads!r} (expected to divide d_model={width!r})")
+    durations, extra = at("model_defaults", "tdt_durations"), at("joint", "num_extra_outputs")
+    if not (isinstance(durations, list) and durations and all(type(d) is int and d >= 0 for d in durations)) or (
+        len(durations) != extra
+    ):
+        wrong.append(f"model_defaults.tdt_durations={durations!r} (expected {extra!r} non-negative integers)")
     if wrong:
         raise UnsupportedModel("not the Parakeet TDT architecture this code implements: " + ", ".join(wrong))

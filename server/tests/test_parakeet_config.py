@@ -27,6 +27,12 @@ def test_accepts_parakeet_v3():
         (("joint", "jointnet", "activation"), "tanh"),
         (("decoding", "model_type"), "rnnt"),
         (("decoding", "greedy", "max_symbols"), None),
+        (("decoding", "greedy", "max_symbols"), True),
+        (("encoder", "n_layers"), 0),
+        (("encoder", "n_heads"), 3),
+        (("decoder", "prednet", "pred_rnn_layers"), 0),
+        (("model_defaults", "tdt_durations"), []),
+        (("model_defaults", "tdt_durations"), [1, 2]),
     ],
 )
 def test_rejects_what_the_code_does_not_implement(path, value):

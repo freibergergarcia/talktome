@@ -12,13 +12,12 @@ import sys
 
 import numpy as np
 import torch
-from nemo.collections.asr.models import ASRModel
 
-MODEL = "nvidia/parakeet-tdt-0.6b-v3"
+from make_reference import load_model  # same pinned checkpoint
 
 
 def main() -> None:
-    preprocessor = ASRModel.from_pretrained(MODEL, map_location="cpu").preprocessor.eval()
+    preprocessor = load_model().preprocessor.eval()
     rng = np.random.default_rng(7)
     t = np.arange(9_600) / 16_000
     voice = 0.3 * np.sin(2 * np.pi * (120 * t + 900 * t**2)) * (1 + 0.5 * np.sin(2 * np.pi * 3 * t))
