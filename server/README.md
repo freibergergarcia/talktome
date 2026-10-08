@@ -79,8 +79,11 @@ python3 -m venv ~/.local/share/talktome-server/venv
   "talktome-server[mlx] @ git+https://github.com/freibergergarcia/talktome@v0.2.0#subdirectory=server"
 ```
 
-From a clone, install `"./server[mlx]"` instead. Or deploy from another Mac
-over SSH, which installs and starts it in one go:
+From a clone, install `"./server[mlx]"` instead.
+`scripts/install-local-server.sh <version>` does what TalkToMe's "Set up
+Parakeet on this Mac" does: a private, checksum-verified Python 3.12, the
+server from that release, and a launch agent on localhost. Or deploy from
+another Mac over SSH, which installs and starts it in one go:
 
 ```sh
 scripts/deploy-server.sh my-server-mac --host 0.0.0.0

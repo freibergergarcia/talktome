@@ -26,6 +26,23 @@ unreachable and fallback is on, it transcribes on-device instead.
   addresses (`.local` names and private IPs); anything else must be HTTPS.
 - Transcripts are never logged. The log records clip length, loudness and timing.
 
+## Setting up the server from the app
+
+"Set up Parakeet on this Mac" runs `scripts/install-local-server.sh`, bundled
+in the app, with your user's permissions (no administrator rights). It
+downloads and runs:
+
+| What | From | Verified by |
+|---|---|---|
+| CPython 3.12 (python-build-standalone) | GitHub, astral-sh | SHA-256 pinned in the script |
+| talktome-server | This repository's release tag for the app's version | HTTPS only |
+| Its Python dependencies (MLX, NumPy, FastAPI, …) | PyPI | HTTPS only; version ranges in `server/pyproject.toml` |
+| The Parakeet model | Hugging Face, a pinned revision | HTTPS only |
+
+This is the same trust as installing the server by hand with `pip`. The
+server it installs listens on `127.0.0.1` only and starts at login; Settings
+can remove the launch agent again.
+
 ## The app
 
 - The API key is stored in the macOS Keychain.
