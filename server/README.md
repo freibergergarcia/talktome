@@ -71,10 +71,37 @@ unbiased standard deviation in the normalization.
 
 ## Install
 
+On the Mac that will do the transcribing (Apple Silicon, Python 3.10+):
+
 ```sh
 python3 -m venv ~/.local/share/talktome-server/venv
-~/.local/share/talktome-server/venv/bin/pip install "./server[mlx]"
+~/.local/share/talktome-server/venv/bin/pip install \
+  "talktome-server[mlx] @ git+https://github.com/freibergergarcia/talktome@v0.2.0#subdirectory=server"
 ```
+
+From a clone, install `"./server[mlx]"` instead. Or deploy from another Mac
+over SSH, which installs and starts it in one go:
+
+```sh
+scripts/deploy-server.sh my-server-mac --host 0.0.0.0
+```
+
+To update, run the same install with the new version tag (or
+`deploy-server.sh` again), then restart with `talktome-server install-agent`
+and the same options. The token and the downloaded model are kept. The app
+and the server only share the API, so their versions do not need to match.
+
+### Firewall
+
+If the macOS firewall is on, it may silently drop connections to Python.
+`install-agent` prints the exact program to allow; then on the server:
+
+```sh
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add <program>
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp <program>
+```
+
+The path includes the Python version, so repeat this after upgrading Python.
 
 ## Commands
 

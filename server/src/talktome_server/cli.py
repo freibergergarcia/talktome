@@ -143,7 +143,7 @@ def cmd_install_agent(args: argparse.Namespace) -> None:
     print(f"Listening on {args.host}:{args.port} once the model has loaded. Log: {AGENT_LOG}")
     if not is_loopback(args.host):
         print("\nmacOS may block incoming connections to Python. If other machines cannot connect,")
-        print("allow this interpreter in the firewall (see the README, 'Firewall').")
+        print("allow this interpreter in the firewall (see server/README.md, 'Firewall').")
         print(f"Program to allow: {firewall_target()}")
 
 

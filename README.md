@@ -78,7 +78,7 @@ Skip this if you transcribe on-device or already have a compatible service
 ```sh
 python3 -m venv ~/.local/share/talktome-server/venv
 ~/.local/share/talktome-server/venv/bin/pip install \
-  "talktome-server[mlx] @ git+https://github.com/freibergergarcia/talktome@v0.1.1#subdirectory=server"
+  "talktome-server[mlx] @ git+https://github.com/freibergergarcia/talktome@v0.2.0#subdirectory=server"
 ~/.local/share/talktome-server/venv/bin/talktome-server install-agent --host 0.0.0.0
 ~/.local/share/talktome-server/venv/bin/talktome-server token     # copy this
 ```
@@ -87,36 +87,11 @@ python3 -m venv ~/.local/share/talktome-server/venv
 downloads the model (about 2.5 GB). Without `--host` the server only accepts
 connections from its own machine.
 
-Or, from a clone of this repository, deploy from your laptop over SSH:
-
-```sh
-scripts/deploy-server.sh my-server-mac --host 0.0.0.0
-```
-
 Then in TalkToMe → **Settings… → Transcription**: choose **Server**, enter
 `http://<server-name>.local:8766/v1`, paste the token, and press **Test connection**.
 Plain HTTP suits a trusted home network; on shared networks put the server
-behind HTTPS (see [SECURITY.md](SECURITY.md)).
-
-#### Firewall
-
-If the macOS firewall is on, it may silently drop connections to Python.
-`install-agent` prints the exact program to allow; then on the server:
-
-```sh
-sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add <program>
-sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp <program>
-```
-
-The path includes the Python version, so repeat this after upgrading Python.
-
-#### Updating the server
-
-Release notes say when the server changed. Run the same `pip install` with
-the new version tag (or `deploy-server.sh` again), then restart it with
-`talktome-server install-agent --host 0.0.0.0`. The token and the downloaded
-model are kept. The app and the server only share the API, so their versions
-do not need to match.
+behind HTTPS (see [SECURITY.md](SECURITY.md)). Updating, deploying over SSH
+and the macOS firewall: see [server/README.md](server/README.md#install).
 
 ### 3. Optional: use another OpenAI-compatible service
 
@@ -128,27 +103,32 @@ documentation for the model name. Audio goes only to the URL you enter.
 
 ## How it works
 
-```
- right ⌘ ──▶ TalkToMe.app ── 16 kHz WAV ──▶ engine ── text ──▶ clipboard + ⌘V
-                  │                            │
-                  │                ┌───────────┴────────────┐
-                  │                │ Apple SpeechTranscriber │ on this Mac
-                  │                │ talktome-server         │ Parakeet on your network
-                  │                │ OpenAI-compatible API   │ anywhere you choose
-                  │                └─────────────────────────┘
-                  └── floating pill: waveform, timer, result
-```
+TalkToMe records while you dictate, sends 16 kHz audio to the engine you
+choose, and pastes the text at the cursor.
 
 | Engine | Typical latency | Languages | Where audio goes |
 |---|---|---|---|
 | On this Mac | ~0.2–0.5 s | One at a time, chosen in Settings | Nowhere |
-| talktome-server (Parakeet v3) | ~0.15–0.45 s on a home network | 25 European languages, auto-detected | Your server |
+| talktome-server (Parakeet v3) | ~0.3–0.4 s over home Wi-Fi | 25 European languages, auto-detected | Your server |
 | OpenAI-compatible | Depends on provider | Depends on provider | The URL you set |
 
-talktome-server runs Parakeet with its own inference code, written from
-NVIDIA's reference implementation (NeMo) and checked against it. It replaced
-parakeet-mlx; [server/README.md](server/README.md#why-not-parakeet-mlx) shows
-the measurements and the differences.
+### talktome-server and parakeet-mlx
+
+Since 0.2.0 the server runs Parakeet with its own inference code, written from
+NVIDIA's reference implementation (NeMo) and checked against it, instead of
+the parakeet-mlx library. Measured on a Mac Studio (M5 Max):
+
+| | parakeet-mlx 0.5.3 | talktome-server 0.2.0 |
+|---|---|---|
+| Transcripts identical to NVIDIA's (3,539 clips) | 73% | 100% |
+| Error rate, short clips (English / Portuguese) | 2.16% / 4.92% | 2.16% / 4.95% |
+| Error rate, 5-minute recordings | 1.33% | 0.75% |
+| Time for a 10 s clip | 68 ms | 40 ms |
+| Time for a 60 s clip | 311 ms | 199 ms |
+| GPU memory | Grows without limit | 3.9 GB at most |
+
+Method, the differences and why the server stopped using parakeet-mlx:
+[server/README.md](server/README.md#why-not-parakeet-mlx).
 
 ## Privacy
 
@@ -168,8 +148,7 @@ See [SECURITY.md](SECURITY.md) for the network model.
 | "No microphone found" | Mac Studio and Mac mini have no built-in mic. Connect a USB or Bluetooth mic (or AirPods) to that Mac |
 | Nothing happens on the key | Input Monitoring is not granted. System Settings → Privacy & Security → Input Monitoring |
 | Text is copied but not pasted | Accessibility is not granted, or "Paste at the cursor" is off |
-| Permissions reset after every build | The app is ad-hoc signed. Sign with your own identity, see [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Server works locally but not from another Mac | Firewall, see [Firewall](#firewall) |
+| Server works locally but not from another Mac | Firewall, see [server/README.md](server/README.md#firewall) |
 | "requires the use of a secure connection" | macOS only allows plain HTTP to local addresses (`.local`, private IPs). Use HTTPS for anything else |
 
 Turn on **Settings → Advanced → Debug log** and check `~/Library/Logs/TalkToMe.log`.
