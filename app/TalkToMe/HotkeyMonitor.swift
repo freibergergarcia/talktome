@@ -99,9 +99,9 @@ struct HotkeyStateMachine {
     }
 }
 
-/// Watches the chosen hotkey system-wide with a listen-only event tap. That
-/// needs Input Monitoring permission but not Accessibility: it can see keys,
-/// never change them.
+/// Watches the chosen hotkey system-wide with a listen-only event tap. It can
+/// see keys, never change them. That needs Input Monitoring; macOS 27 shows
+/// it as Device Control and Data Access and decides it through Accessibility.
 final class HotkeyMonitor {
     var onEvent: ((HotkeyStateMachine.Event) -> Void)?
     /// Read on every event, so a change in Settings applies immediately.
@@ -124,21 +124,38 @@ final class HotkeyMonitor {
     }
     static func requestPermission() { CGRequestListenEventAccess() }
 
-    /// Forgets this app's Input Monitoring answer. An ad-hoc signed update
-    /// leaves the switch on in System Settings, but macOS denies the new
-    /// build and never asks again; after a reset it asks.
-    static func resetPermission() -> Bool {
-        guard let id = Bundle.main.bundleIdentifier else { return false }
-        let reset = Process()
-        reset.executableURL = URL(filePath: "/usr/bin/tccutil")
-        reset.arguments = ["reset", "ListenEvent", id]
-        do {
-            try reset.run()
-            reset.waitUntilExit()
-        } catch {
-            return false
+    /// Opens the pane where TalkToMe is switched on, or Privacy & Security
+    /// if this macOS does not know the pane's link.
+    static func openSettings() {
+        let pane = "x-apple.systempreferences:com.apple.preference.security"
+        if !NSWorkspace.shared.open(URL(string: pane + "?Privacy_ListenEvent")!) {
+            NSWorkspace.shared.open(URL(string: pane)!)
         }
-        return reset.terminationStatus == 0
+    }
+
+    /// The permissions an ad-hoc signed build gets tied to: the hotkey's and
+    /// the paste's. macOS 27 decides the hotkey through Accessibility too, so
+    /// resetting Input Monitoring alone leaves a stale Accessibility answer
+    /// that still denies it.
+    private static let services = ["ListenEvent", "PostEvent", "Accessibility"]
+
+    /// Forgets this app's answers for `services`. After an update macOS denies
+    /// the new build in silence and `CGRequestListenEventAccess` asks nothing
+    /// while the answer is "denied"; after a reset it asks again.
+    static func resetPermissions() -> Bool {
+        guard let id = Bundle.main.bundleIdentifier else { return false }
+        return services.map { service in
+            let reset = Process()
+            reset.executableURL = URL(filePath: "/usr/bin/tccutil")
+            reset.arguments = ["reset", service, id]
+            do {
+                try reset.run()
+                reset.waitUntilExit()
+            } catch {
+                return false
+            }
+            return reset.terminationStatus == 0
+        }.allSatisfy { $0 }
     }
 
     /// Starts listening; true only if the hotkey will work in every app.

@@ -60,14 +60,12 @@ struct HomePanel: View {
                     switch dictation.hotkeyRepair {
                     case .needsRelaunch:
                         Button("Relaunch") { dictation.relaunch() }
-                        Button("Open Settings") { Self.openInputMonitoring() }
-                    case .failed:
-                        Button("Fix permission") { dictation.fixHotkeyPermission() }
-                        Button("Open Settings") { Self.openInputMonitoring() }
-                    case .none, .repairing:
-                        Button("Try again") { dictation.startHotkey() }
+                    case .waitingForGrant:
+                        Button("Open Settings") { HotkeyMonitor.openSettings() }
+                    case .none, .repairing, .failed:
                         Button("Fix permission") { dictation.fixHotkeyPermission() }
                             .disabled(dictation.hotkeyRepair == .repairing)
+                        Button("Open Settings") { HotkeyMonitor.openSettings() }
                     }
                 }
                 .buttonStyle(CapsuleButton())
@@ -80,16 +78,10 @@ struct HomePanel: View {
         let key = dictation.settings.hotkey.symbol
         let pane = HotkeyMonitor.permissionName
         return switch dictation.hotkeyRepair {
-        case .needsRelaunch: "Turn on TalkToMe in \(pane), then relaunch."
+        case .needsRelaunch: "TalkToMe is on in \(pane). Relaunch it so \(key) works in every app."
+        case .waitingForGrant: "Turn on TalkToMe in \(pane), then choose Quit & Reopen when macOS offers it."
         case .failed: "Could not reset the permission. In \(pane), remove TalkToMe with −, then add it again."
-        case .none, .repairing: "Turn on TalkToMe in \(pane) so \(key) works in every app. Already on? After an update it can still point at the old version."
-        }
-    }
-
-    private static func openInputMonitoring() {
-        let pane = "x-apple.systempreferences:com.apple.preference.security"
-        if !NSWorkspace.shared.open(URL(string: pane + "?Privacy_ListenEvent")!) {
-            NSWorkspace.shared.open(URL(string: pane)!)
+        case .none, .repairing: "Turn on TalkToMe in \(pane) so \(key) works in every app. Already on? After an update it can still point at the old version: use Fix permission."
         }
     }
 

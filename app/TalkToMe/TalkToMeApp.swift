@@ -130,6 +130,7 @@ enum Snapshots {
 
         let repairs: [(String, Dictation.HotkeyRepair)] = [
             ("home-permission", .none),
+            ("home-permission-waiting", .waitingForGrant),
             ("home-permission-relaunch", .needsRelaunch),
             ("home-permission-failed", .failed),
         ]

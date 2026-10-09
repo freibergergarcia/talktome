@@ -14,6 +14,11 @@ enum EventLog {
         return f
     }()
 
+    /// Waits for pending lines, before the app quits.
+    static func flush() {
+        queue.sync {}
+    }
+
     static func write(_ message: String) {
         guard enabled else { return }
         // Called from several threads: format on the log's own queue.
