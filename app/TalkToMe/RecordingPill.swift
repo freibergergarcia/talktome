@@ -193,19 +193,17 @@ struct PillView: View {
 struct Waveform: View {
     let levels: [Float]
 
-    /// The last 0.3 s of loudness, weighted to the newest, so the wave
-    /// follows the voice without twitching at every level.
+    /// The louder of the last two levels (0.2 s), so the wave rises on
+    /// each syllable instead of averaging it away.
     private var loudness: CGFloat {
-        let recent = levels.suffix(3)
-        guard !recent.isEmpty else { return 0 }
-        let weighted = recent.enumerated().reduce(Float(0)) { $0 + $1.element * Float($1.offset + 1) }
-        let weights = Float(recent.count * (recent.count + 1) / 2)
-        return CGFloat(weighted / weights)
+        CGFloat(levels.suffix(2).max() ?? 0)
     }
 
     var body: some View {
-        LiquidWave(amplitude: 0.08 + 0.92 * loudness, colors: [Palette.accent, Palette.accent2])
-            .animation(.smooth(duration: 0.3), value: loudness)
+        // The curve lifts normal speech (levels around 0.4 to 0.7) to most
+        // of the height; silence keeps a small ripple.
+        LiquidWave(amplitude: 0.1 + 0.9 * pow(loudness, 0.6), colors: [Palette.accent, Palette.accent2])
+            .animation(.spring(response: 0.2, dampingFraction: 0.75), value: loudness)
     }
 }
 
@@ -266,7 +264,7 @@ struct WaveLine: Shape {
         let steps = max(Int(rect.width / 2), 2)
         for step in 0...steps {
             let x = Double(step) / Double(steps)
-            let envelope = pow(sin(.pi * x), 2)
+            let envelope = pow(sin(.pi * x), 1.4)
             let y = mid - amplitude * (rect.height / 2 - 2) * envelope * sin(2 * .pi * cycles * x + phase)
             let point = CGPoint(x: rect.minX + rect.width * x, y: y)
             if step == 0 { path.move(to: point) } else { path.addLine(to: point) }

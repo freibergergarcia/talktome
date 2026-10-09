@@ -27,6 +27,8 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
     private var pcm = Data()
     private var peak: Float = 0
     private var buffers = 0
+    /// Every waveform level of this recording, for the debug log.
+    private var levelLog: [Float] = []
     private var onset = SoundOnset()
     private var meter = LevelMeter()
     private var onSound: (@Sendable () -> Void)?
@@ -120,6 +122,7 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
             pcm.removeAll(keepingCapacity: true)
             peak = 0
             buffers = 0
+            levelLog.removeAll(keepingCapacity: true)
             onset = SoundOnset()
             meter = LevelMeter()
             self.onSound = onSound
@@ -146,11 +149,15 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
         observer = nil
         // Take in any buffer still on its way.
         audioQueue.sync {}
-        let (data, buffers, peak) = lock.withLock {
+        let (data, buffers, peak, levels) = lock.withLock {
             onSound = nil
-            return (pcm, self.buffers, self.peak)
+            return (pcm, self.buffers, self.peak, levelLog.sorted())
         }
         EventLog.write("recorder stop: \(buffers) buffers, peak \(peak), \(data.count) bytes")
+        if !levels.isEmpty {
+            let at = { (q: Double) in String(format: "%.2f", levels[Int(Double(levels.count - 1) * q)]) }
+            EventLog.write("levels: median \(at(0.5)), p90 \(at(0.9)), max \(at(1))")
+        }
         return data
     }
 
@@ -182,6 +189,7 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
             buffers += 1
             peak = max(peak, loudest)
             let first = onset.isFirstSound(peak: loudest, seconds: Double(count) / Self.sampleRate)
+            levelLog += levels
             return (first ? onSound : nil, levels)
         }
         firstSound?()
