@@ -65,7 +65,7 @@ Dock. On first use macOS asks for:
 
 | Permission | Why |
 |---|---|
-| Input Monitoring | To notice the dictation key while you work in other apps |
+| Input Monitoring (macOS 27: Device Control and Data Access) | To notice the dictation key while you work in other apps |
 | Microphone | To record while you dictate |
 | Accessibility | To paste with ⌘V into the app you are using (optional; turn off "Paste at the cursor" to skip) |
 
@@ -154,7 +154,7 @@ See [SECURITY.md](SECURITY.md) for the network model.
 |---|---|
 | "Didn't catch that" every time | The mic records silence. With the lid closed the built-in mic is off: pick another input in Settings → Microphone |
 | "No microphone found" | Mac Studio and Mac mini have no built-in mic. Connect a USB or Bluetooth mic (or AirPods) to that Mac |
-| Nothing happens on the key | Input Monitoring is not granted. System Settings → Privacy & Security → Input Monitoring |
+| Nothing happens on the key, or only while TalkToMe is in front | Input Monitoring is not granted, or still points at an older version. Use **Fix permission** in the menu bar panel, or System Settings → Privacy & Security → Input Monitoring (macOS 27: Device Control and Data Access) |
 | Text is copied but not pasted | Accessibility is not granted, or "Paste at the cursor" is off |
 | Server works locally but not from another Mac | Firewall, see [server/README.md](server/README.md#firewall) |
 | "requires the use of a secure connection" | macOS only allows plain HTTP to local addresses (`.local`, private IPs). Use HTTPS for anything else |

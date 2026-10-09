@@ -99,9 +99,9 @@ struct HotkeyStateMachine {
     }
 }
 
-/// Watches the chosen hotkey system-wide with a listen-only event tap. That
-/// needs Input Monitoring permission but not Accessibility: it can see keys,
-/// never change them.
+/// Watches the chosen hotkey system-wide with a listen-only event tap. It can
+/// see keys, never change them. That needs Input Monitoring; macOS 27 shows
+/// it as Device Control and Data Access and decides it through Accessibility.
 final class HotkeyMonitor {
     var onEvent: ((HotkeyStateMachine.Event) -> Void)?
     /// Read on every event, so a change in Settings applies immediately.
@@ -109,14 +109,63 @@ final class HotkeyMonitor {
 
     private static let escapeKeyCode: Int64 = 53
     private var tap: CFMachPort?
+    private var source: CFRunLoopSource?
+    /// Whether Input Monitoring was granted when the tap was made.
+    private var tapPermitted = false
     private var machine = HotkeyStateMachine()
 
     static var hasPermission: Bool { CGPreflightListenEventAccess() }
+
+    /// What System Settings calls the permission: macOS 27 folds Input
+    /// Monitoring into Device Control and Data Access.
+    static var permissionName: String {
+        ProcessInfo.processInfo.isOperatingSystemAtLeast(OperatingSystemVersion(majorVersion: 27, minorVersion: 0, patchVersion: 0))
+            ? "Device Control and Data Access" : "Input Monitoring"
+    }
     static func requestPermission() { CGRequestListenEventAccess() }
 
+    /// Opens the pane where TalkToMe is switched on, or Privacy & Security
+    /// if this macOS does not know the pane's link.
+    static func openSettings() {
+        let pane = "x-apple.systempreferences:com.apple.preference.security"
+        if !NSWorkspace.shared.open(URL(string: pane + "?Privacy_ListenEvent")!) {
+            NSWorkspace.shared.open(URL(string: pane)!)
+        }
+    }
+
+    /// The permissions an ad-hoc signed build gets tied to: the hotkey's and
+    /// the paste's. macOS 27 decides the hotkey through Accessibility too, so
+    /// resetting Input Monitoring alone leaves a stale Accessibility answer
+    /// that still denies it.
+    private static let services = ["ListenEvent", "PostEvent", "Accessibility"]
+
+    /// Forgets this app's answers for `services`. After an update macOS denies
+    /// the new build in silence and `CGRequestListenEventAccess` asks nothing
+    /// while the answer is "denied"; after a reset it asks again.
+    static func resetPermissions() -> Bool {
+        guard let id = Bundle.main.bundleIdentifier else { return false }
+        return services.map { service in
+            let reset = Process()
+            reset.executableURL = URL(filePath: "/usr/bin/tccutil")
+            reset.arguments = ["reset", service, id]
+            do {
+                try reset.run()
+                reset.waitUntilExit()
+            } catch {
+                return false
+            }
+            return reset.terminationStatus == 0
+        }.allSatisfy { $0 }
+    }
+
+    /// Starts listening; true only if the hotkey will work in every app.
+    /// Without Input Monitoring macOS still creates the tap, but only passes
+    /// it keys typed into TalkToMe itself, so the tap alone proves nothing.
     @discardableResult
     func start() -> Bool {
-        if tap != nil { return true }
+        let permitted = Self.hasPermission
+        if tap != nil, permitted == tapPermitted { return permitted }
+        stop()
         let mask = (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.keyDown.rawValue)
         let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
@@ -132,10 +181,22 @@ final class HotkeyMonitor {
         )
         guard let tap else { return false }
         self.tap = tap
+        tapPermitted = permitted
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        self.source = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
-        return true
+        EventLog.write("hotkey tap started, permitted=\(permitted)")
+        return permitted
+    }
+
+    private func stop() {
+        guard let tap else { return }
+        CGEvent.tapEnable(tap: tap, enable: false)
+        if let source { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
+        CFMachPortInvalidate(tap)
+        self.tap = nil
+        source = nil
     }
 
     private func handle(type: CGEventType, event: CGEvent) {

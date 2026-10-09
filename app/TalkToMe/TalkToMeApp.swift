@@ -128,6 +128,19 @@ enum Snapshots {
         save(HomePanel(dictation: model), "home", to: dir)
         save(SettingsView(settings: settings, dictation: model), "settings", to: dir)
 
+        let repairs: [(String, Dictation.HotkeyRepair)] = [
+            ("home-permission", .none),
+            ("home-permission-waiting", .waitingForGrant),
+            ("home-permission-relaunch", .needsRelaunch),
+            ("home-permission-failed", .failed),
+        ]
+        for (name, repair) in repairs {
+            let permissionModel = Dictation(settings: settings, live: false)
+            permissionModel.loadPreview(phase: .idle, history: history, stats: stats, remoteReachable: true, levels: levels)
+            permissionModel.loadPermissionPreview(repair)
+            save(HomePanel(dictation: permissionModel), name, to: dir)
+        }
+
         let setups: [(String, LocalServer.State, InstalledAgent?)] = [
             ("local-server", .idle, nil),
             ("local-server-progress", .working(.model, download: 0.42), nil),

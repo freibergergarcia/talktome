@@ -52,13 +52,36 @@ struct HomePanel: View {
                  + Text(" to start and stop. Esc cancels.").foregroundStyle(Palette.muted))
                     .font(Typeface.ui(12.5))
             } else {
-                Text("Allow Input Monitoring so \(dictation.settings.hotkey.symbol) can start a dictation.")
+                Text(permissionHint)
                     .font(Typeface.ui(12.5))
                     .foregroundStyle(Palette.warning)
-                Button("Try again") { dictation.startHotkey() }
-                    .buttonStyle(CapsuleButton())
-                    .padding(.top, 4)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    switch dictation.hotkeyRepair {
+                    case .needsRelaunch:
+                        Button("Relaunch") { dictation.relaunch() }
+                    case .waitingForGrant:
+                        Button("Open Settings") { HotkeyMonitor.openSettings() }
+                    case .none, .repairing, .failed:
+                        Button("Fix permission") { dictation.fixHotkeyPermission() }
+                            .disabled(dictation.hotkeyRepair == .repairing)
+                        Button("Open Settings") { HotkeyMonitor.openSettings() }
+                    }
+                }
+                .buttonStyle(CapsuleButton())
+                .padding(.top, 4)
             }
+        }
+    }
+
+    private var permissionHint: String {
+        let key = dictation.settings.hotkey.symbol
+        let pane = HotkeyMonitor.permissionName
+        return switch dictation.hotkeyRepair {
+        case .needsRelaunch: "TalkToMe is on in \(pane). Relaunch it so \(key) works in every app."
+        case .waitingForGrant: "Turn on TalkToMe in \(pane), then choose Quit & Reopen when macOS offers it."
+        case .failed: "Could not reset the permission. In \(pane), remove TalkToMe with −, then add it again."
+        case .none, .repairing: "Turn on TalkToMe in \(pane) so \(key) works in every app. Already on? After an update it can still point at the old version: use Fix permission."
         }
     }
 

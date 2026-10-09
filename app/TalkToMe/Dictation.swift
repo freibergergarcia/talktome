@@ -31,6 +31,9 @@ final class Dictation {
     private(set) var remoteReachable = false
     private(set) var history: [Entry] = []
     private(set) var hotkeyActive = false
+    enum HotkeyRepair: Equatable { case none, repairing, waitingForGrant, needsRelaunch, failed }
+    /// Progress of `fixHotkeyPermission`.
+    private(set) var hotkeyRepair = HotkeyRepair.none
     private(set) var stats = Stats.load()
 
     let settings: AppSettings
@@ -58,6 +61,57 @@ final class Dictation {
     func startHotkey() {
         if !HotkeyMonitor.hasPermission { HotkeyMonitor.requestPermission() }
         hotkeyActive = hotkey.start()
+    }
+
+    /// When the panel opens. A tap made before the grant never gets other
+    /// apps' keys, so a grant that arrived after this launch needs a relaunch.
+    /// macOS offers Quit & Reopen when it is granted; this covers Later.
+    func refreshHotkeyPermission() {
+        guard !hotkeyActive, hotkeyRepair != .repairing, HotkeyMonitor.hasPermission else { return }
+        hotkeyRepair = .needsRelaunch
+    }
+
+    /// For answers left over from an earlier build, which macOS keeps
+    /// applying (as "denied") to this one: clears them, so macOS asks again
+    /// and lists TalkToMe, switched off. It asks for pasting at the same time,
+    /// since the reset clears that too and it would otherwise ask again at
+    /// the first paste.
+    func fixHotkeyPermission() {
+        hotkeyRepair = .repairing
+        Task {
+            let reset = await Task.detached { HotkeyMonitor.resetPermissions() }.value
+            EventLog.write("hotkey permissions reset: \(reset)")
+            guard reset else {
+                hotkeyRepair = .failed
+                return
+            }
+            HotkeyMonitor.requestPermission()
+            if settings.autoPaste { _ = Self.canPaste(asking: true) }
+            hotkeyRepair = .waitingForGrant
+        }
+    }
+
+    /// Opens the app again once this process has exited (giving up after
+    /// 10 s). Plain `open` only brings an already running copy forward, so
+    /// this can never start a second one.
+    func relaunch() {
+        let helper = Process()
+        helper.executableURL = URL(filePath: "/bin/sh")
+        helper.arguments = [
+            "-c",
+            "for _ in $(seq 100); do kill -0 \"$1\" 2>/dev/null || break; sleep 0.1; done; /usr/bin/open \"$0\"",
+            Bundle.main.bundlePath,
+            String(ProcessInfo.processInfo.processIdentifier),
+        ]
+        do {
+            try helper.run()
+        } catch {
+            EventLog.write("relaunch failed: \(error)")
+            return
+        }
+        EventLog.write("relaunching")
+        EventLog.flush()
+        NSApp.terminate(nil)
     }
 
     func copy(_ entry: Entry) {
@@ -261,6 +315,12 @@ final class Dictation {
         self.phase = phase
     }
 
+    /// Shows the hotkey's permission warning in a given repair step (--snapshot).
+    func loadPermissionPreview(_ repair: HotkeyRepair) {
+        hotkeyActive = false
+        hotkeyRepair = repair
+    }
+
     // MARK: - Reachability
 
     func refreshRemote() async {
@@ -294,10 +354,15 @@ final class Dictation {
         NSPasteboard.general.setString(text, forType: .string)
     }
 
+    /// Whether TalkToMe may paste (Accessibility). `asking` shows macOS's
+    /// prompt and lists TalkToMe in System Settings if it is not allowed yet.
+    private static func canPaste(asking: Bool) -> Bool {
+        AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue(): asking] as CFDictionary)
+    }
+
     /// Sends ⌘V to the frontmost app. Needs Accessibility permission.
     private static func paste() {
-        let prompt = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
-        guard AXIsProcessTrustedWithOptions(prompt) else { return }
+        guard canPaste(asking: true) else { return }
         let source = CGEventSource(stateID: .combinedSessionState)
         let vKey: CGKeyCode = 9
         let down = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: true)

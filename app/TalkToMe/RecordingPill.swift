@@ -62,7 +62,7 @@ final class PillPanel {
 
 // MARK: - View
 
-/// Superwhisper-style: a small black capsule where the waveform is the
+/// Superwhisper-style: a small glass capsule where the waveform is the
 /// whole story. Text appears only when there is something to read.
 struct PillView: View {
     let dictation: Dictation
@@ -94,6 +94,7 @@ struct PillView: View {
             .frame(width: isCompact ? 250 : 380)
             .background(background)
             .clipShape(.rect(cornerRadius: isCompact ? 30 : 24, style: .continuous))
+            .glassEffect(.regular, in: .rect(cornerRadius: isCompact ? 30 : 24, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: isCompact ? 30 : 24, style: .continuous)
                     .strokeBorder(Palette.hairline, lineWidth: 0.5)
@@ -101,10 +102,11 @@ struct PillView: View {
             .shadow(color: .black.opacity(0.45), radius: 22, y: 10)
     }
 
-    /// Near-black with one soft glow in the state's colour.
+    /// Liquid Glass darkened toward ink, so the lines read over any app,
+    /// with one soft glow in the state's colour.
     private var background: some View {
         ZStack {
-            Palette.ink
+            Palette.ink.opacity(0.6)
             RadialGradient(colors: [accent.opacity(0.35), .clear],
                            center: .init(x: 0.5, y: 1.3), startRadius: 0, endRadius: 200)
                 .animation(.easeInOut(duration: 0.5), value: accent)
@@ -185,46 +187,89 @@ struct PillView: View {
 
 // MARK: - Pieces
 
-/// Bars mirrored around the centre line, newest on the right, fading in
-/// from the left so the eye lands on "now".
+/// The voice as flowing lines: three soft waves under a bell-shaped
+/// envelope, still at the ends and alive in the middle. They always drift;
+/// how tall they swell follows the voice.
 struct Waveform: View {
     let levels: [Float]
 
+    /// The louder of the last two levels (0.2 s), so the wave rises on
+    /// each syllable instead of averaging it away.
+    private var loudness: CGFloat {
+        CGFloat(levels.suffix(2).max() ?? 0)
+    }
+
     var body: some View {
-        GeometryReader { geo in
-            HStack(alignment: .center, spacing: 2.5) {
-                ForEach(levels.indices, id: \.self) { i in
-                    let fade: Double = 0.25 + 0.75 * Double(i) / Double(max(levels.count - 1, 1))
-                    Capsule()
-                        .fill(LinearGradient(colors: [Palette.accent, Palette.accent2],
-                                             startPoint: .bottom, endPoint: .top))
-                        .opacity(fade)
-                        .frame(width: 3, height: max(3, geo.size.height * CGFloat(levels[i])))
-                }
-            }
-            .frame(width: geo.size.width, height: geo.size.height)
-        }
-        .animation(.easeOut(duration: 0.07), value: levels)
+        // The curve lifts normal speech (levels around 0.4 to 0.7) to most
+        // of the height; silence keeps a small ripple.
+        LiquidWave(amplitude: 0.1 + 0.9 * pow(loudness, 0.6), colors: [Palette.accent, Palette.accent2])
+            .animation(.spring(response: 0.2, dampingFraction: 0.75), value: loudness)
     }
 }
 
-/// Idle bars rippling while the engine works.
+/// The engine at work: the same lines, calm and in the second accent.
 struct Shimmer: View {
     var body: some View {
+        LiquidWave(amplitude: 0.35, colors: [Palette.accent2, Palette.accent2.opacity(0.6)], speed: 2.4)
+    }
+}
+
+/// Layered sine lines with a soft glow. `amplitude` is 0…1 of half the height.
+struct LiquidWave: View {
+    var amplitude: CGFloat
+    var colors: [Color]
+    /// Drift in radians per second.
+    var speed = 3.2
+
+    /// Each strand: cycles across the width, drift rate, height and opacity.
+    private static let strands: [(cycles: Double, drift: Double, height: CGFloat, opacity: Double, width: CGFloat)] = [
+        (1.6, 1.0, 1.0, 1.0, 2.2),
+        (2.3, -0.7, 0.65, 0.55, 1.4),
+        (1.1, 1.4, 0.4, 0.35, 1.2),
+    ]
+
+    var body: some View {
         TimelineView(.animation) { context in
-            let t = context.date.timeIntervalSinceReferenceDate
-            GeometryReader { geo in
-                HStack(spacing: 2.5) {
-                    ForEach(0..<Dictation.levelCount, id: \.self) { i in
-                        let wave: Double = 0.5 + 0.5 * sin(t * 6 - Double(i) * 0.45)
-                        Capsule()
-                            .fill(Palette.accent2.opacity(0.35 + 0.5 * wave))
-                            .frame(width: 3, height: 3 + geo.size.height * 0.35 * wave)
-                    }
+            let t = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3600)
+            ZStack {
+                ForEach(Self.strands.indices, id: \.self) { i in
+                    let strand = Self.strands[i]
+                    WaveLine(amplitude: amplitude * strand.height, cycles: strand.cycles,
+                             phase: t * speed * strand.drift + Double(i) * 2.1)
+                        .stroke(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing),
+                                style: StrokeStyle(lineWidth: strand.width, lineCap: .round, lineJoin: .round))
+                        .opacity(strand.opacity)
                 }
-                .frame(width: geo.size.width, height: geo.size.height)
             }
+            .shadow(color: colors[0].opacity(0.7), radius: 6)
         }
+    }
+}
+
+/// One sine line, flat at both ends. Its amplitude animates; the phase is
+/// set every frame.
+struct WaveLine: Shape {
+    var amplitude: CGFloat
+    var cycles: Double
+    var phase: Double
+
+    var animatableData: CGFloat {
+        get { amplitude }
+        set { amplitude = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let mid = rect.midY
+        let steps = max(Int(rect.width / 2), 2)
+        for step in 0...steps {
+            let x = Double(step) / Double(steps)
+            let envelope = pow(sin(.pi * x), 1.4)
+            let y = mid - amplitude * (rect.height / 2 - 2) * envelope * sin(2 * .pi * cycles * x + phase)
+            let point = CGPoint(x: rect.minX + rect.width * x, y: y)
+            if step == 0 { path.move(to: point) } else { path.addLine(to: point) }
+        }
+        return path
     }
 }
 

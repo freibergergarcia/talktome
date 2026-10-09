@@ -27,7 +27,10 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
     private var pcm = Data()
     private var peak: Float = 0
     private var buffers = 0
+    /// Every waveform level of this recording, for the debug log.
+    private var levelLog: [Float] = []
     private var onset = SoundOnset()
+    private var meter = LevelMeter()
     private var onSound: (@Sendable () -> Void)?
 
     static var permission: AVAuthorizationStatus { AVCaptureDevice.authorizationStatus(for: .audio) }
@@ -119,7 +122,9 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
             pcm.removeAll(keepingCapacity: true)
             peak = 0
             buffers = 0
+            levelLog.removeAll(keepingCapacity: true)
             onset = SoundOnset()
+            meter = LevelMeter()
             self.onSound = onSound
         }
         observer = NotificationCenter.default.addObserver(
@@ -144,11 +149,15 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
         observer = nil
         // Take in any buffer still on its way.
         audioQueue.sync {}
-        let (data, buffers, peak) = lock.withLock {
+        let (data, buffers, peak, levels) = lock.withLock {
             onSound = nil
-            return (pcm, self.buffers, self.peak)
+            return (pcm, self.buffers, self.peak, levelLog.sorted())
         }
         EventLog.write("recorder stop: \(buffers) buffers, peak \(peak), \(data.count) bytes")
+        if !levels.isEmpty {
+            let at = { (q: Double) in String(format: "%.2f", levels[Int(Double(levels.count - 1) * q)]) }
+            EventLog.write("levels: median \(at(0.5)), p90 \(at(0.9)), max \(at(1))")
+        }
         return data
     }
 
@@ -167,27 +176,23 @@ final class AudioRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
         let count = length / 2
         guard copied == kCMBlockBufferNoErr, count > 0 else { return }
 
-        var loudest: Float = 0
-        var sum: Float = 0
-        bytes.withUnsafeBytes { raw in
-            for sample in raw.bindMemory(to: Int16.self) {
-                let s = Float(sample) / 32768
-                loudest = max(loudest, abs(s))
-                sum += s * s
+        let (firstSound, levels): ((@Sendable () -> Void)?, [Float]) = lock.withLock {
+            var loudest: Float = 0
+            var levels: [Float] = []
+            bytes.withUnsafeBytes { raw in
+                for sample in raw.bindMemory(to: Int16.self) {
+                    loudest = max(loudest, abs(Float(sample) / 32768))
+                    if let level = meter.add(sample) { levels.append(level) }
+                }
             }
-        }
-        let firstSound: (@Sendable () -> Void)? = lock.withLock {
             pcm.append(bytes)
             buffers += 1
             peak = max(peak, loudest)
-            return onset.isFirstSound(peak: loudest, seconds: Double(count) / Self.sampleRate) ? onSound : nil
+            let first = onset.isFirstSound(peak: loudest, seconds: Double(count) / Self.sampleRate)
+            levelLog += levels
+            return (first ? onSound : nil, levels)
         }
         firstSound?()
-
-        // Map loudness on a dB scale (-55 dB silent … -12 dB loud) so normal
-        // speech fills the bars instead of barely moving them.
-        let rms = sqrt(sum / Float(count))
-        let db = 20 * log10(max(rms, 1e-6))
-        onLevel?(min(1, max(0, (db + 55) / 43)))
+        levels.forEach { onLevel?($0) }
     }
 }

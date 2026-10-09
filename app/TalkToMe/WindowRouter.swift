@@ -44,6 +44,7 @@ final class WindowRouter: NSObject, NSWindowDelegate {
         // Take focus first; otherwise the panel loses key status the moment
         // macOS finishes activating whatever was in front, and closes.
         NSApp.activate()
+        dictation.refreshHotkeyPermission()
         panel.show(below: anchor)
         button.highlight(true)
         // Clicking anywhere else closes it, like a menu.
