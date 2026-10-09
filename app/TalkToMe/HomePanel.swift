@@ -52,13 +52,42 @@ struct HomePanel: View {
                  + Text(" to start and stop. Esc cancels.").foregroundStyle(Palette.muted))
                     .font(Typeface.ui(12.5))
             } else {
-                Text("Allow Input Monitoring so \(dictation.settings.hotkey.symbol) can start a dictation.")
+                Text(permissionHint)
                     .font(Typeface.ui(12.5))
                     .foregroundStyle(Palette.warning)
-                Button("Try again") { dictation.startHotkey() }
-                    .buttonStyle(CapsuleButton())
-                    .padding(.top, 4)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    if dictation.hotkeyRepair == .needsRelaunch {
+                        Button("Relaunch") { dictation.relaunch() }
+                        Button("Open Settings") { Self.openInputMonitoring() }
+                    } else {
+                        Button("Try again") { dictation.startHotkey() }
+                        Button("Fix permission") { dictation.fixHotkeyPermission() }
+                            .disabled(dictation.hotkeyRepair == .repairing)
+                        if dictation.hotkeyRepair == .failed {
+                            Button("Open Settings") { Self.openInputMonitoring() }
+                        }
+                    }
+                }
+                .buttonStyle(CapsuleButton())
+                .padding(.top, 4)
             }
+        }
+    }
+
+    private var permissionHint: String {
+        let key = dictation.settings.hotkey.symbol
+        return switch dictation.hotkeyRepair {
+        case .needsRelaunch: "Turn on TalkToMe in Input Monitoring, then relaunch."
+        case .failed: "Could not reset the permission. In Input Monitoring, remove TalkToMe with −, then add it again."
+        case .none, .repairing: "Allow Input Monitoring so \(key) can start a dictation. Already on? After an update it can still point at the old version."
+        }
+    }
+
+    private static func openInputMonitoring() {
+        let pane = "x-apple.systempreferences:com.apple.preference.security"
+        if !NSWorkspace.shared.open(URL(string: pane + "?Privacy_ListenEvent")!) {
+            NSWorkspace.shared.open(URL(string: pane)!)
         }
     }
 

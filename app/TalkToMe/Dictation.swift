@@ -31,6 +31,9 @@ final class Dictation {
     private(set) var remoteReachable = false
     private(set) var history: [Entry] = []
     private(set) var hotkeyActive = false
+    enum HotkeyRepair: Equatable { case none, repairing, needsRelaunch, failed }
+    /// Progress of `fixHotkeyPermission`.
+    private(set) var hotkeyRepair = HotkeyRepair.none
     private(set) var stats = Stats.load()
 
     let settings: AppSettings
@@ -58,6 +61,43 @@ final class Dictation {
     func startHotkey() {
         if !HotkeyMonitor.hasPermission { HotkeyMonitor.requestPermission() }
         hotkeyActive = hotkey.start()
+    }
+
+    /// For a grant left over from an earlier build: clears it so macOS asks
+    /// again. The user turns TalkToMe on, then relaunches, since macOS applies
+    /// a new grant only to a fresh launch.
+    func fixHotkeyPermission() {
+        hotkeyRepair = .repairing
+        Task {
+            let reset = await Task.detached { HotkeyMonitor.resetPermission() }.value
+            EventLog.write("hotkey permission reset: \(reset)")
+            guard reset else {
+                hotkeyRepair = .failed
+                return
+            }
+            HotkeyMonitor.requestPermission()
+            hotkeyRepair = .needsRelaunch
+        }
+    }
+
+    func relaunch() {
+        // Opens the app again once this process has exited (giving up after
+        // 10 s); opening it earlier would only bring this one forward.
+        let helper = Process()
+        helper.executableURL = URL(filePath: "/bin/sh")
+        helper.arguments = [
+            "-c",
+            "for _ in $(seq 100); do kill -0 \"$1\" 2>/dev/null || break; sleep 0.1; done; /usr/bin/open -n \"$0\"",
+            Bundle.main.bundlePath,
+            String(ProcessInfo.processInfo.processIdentifier),
+        ]
+        do {
+            try helper.run()
+        } catch {
+            EventLog.write("relaunch failed: \(error)")
+            return
+        }
+        NSApp.terminate(nil)
     }
 
     func copy(_ entry: Entry) {

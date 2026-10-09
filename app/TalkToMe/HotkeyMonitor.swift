@@ -114,6 +114,23 @@ final class HotkeyMonitor {
     static var hasPermission: Bool { CGPreflightListenEventAccess() }
     static func requestPermission() { CGRequestListenEventAccess() }
 
+    /// Forgets this app's Input Monitoring answer. An ad-hoc signed update
+    /// leaves the switch on in System Settings, but macOS denies the new
+    /// build and never asks again; after a reset it asks.
+    static func resetPermission() -> Bool {
+        guard let id = Bundle.main.bundleIdentifier else { return false }
+        let reset = Process()
+        reset.executableURL = URL(filePath: "/usr/bin/tccutil")
+        reset.arguments = ["reset", "ListenEvent", id]
+        do {
+            try reset.run()
+            reset.waitUntilExit()
+        } catch {
+            return false
+        }
+        return reset.terminationStatus == 0
+    }
+
     @discardableResult
     func start() -> Bool {
         if tap != nil { return true }
