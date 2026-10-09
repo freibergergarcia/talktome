@@ -78,10 +78,11 @@ struct HomePanel: View {
 
     private var permissionHint: String {
         let key = dictation.settings.hotkey.symbol
+        let pane = HotkeyMonitor.permissionName
         return switch dictation.hotkeyRepair {
-        case .needsRelaunch: "Turn on TalkToMe in Input Monitoring, then relaunch."
-        case .failed: "Could not reset the permission. In Input Monitoring, remove TalkToMe with −, then add it again."
-        case .none, .repairing: "Allow Input Monitoring so \(key) can start a dictation. Already on? After an update it can still point at the old version."
+        case .needsRelaunch: "Turn on TalkToMe in \(pane), then relaunch."
+        case .failed: "Could not reset the permission. In \(pane), remove TalkToMe with −, then add it again."
+        case .none, .repairing: "Turn on TalkToMe in \(pane) so \(key) works in every app. Already on? After an update it can still point at the old version."
         }
     }
 

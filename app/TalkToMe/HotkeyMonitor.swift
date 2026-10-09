@@ -115,6 +115,13 @@ final class HotkeyMonitor {
     private var machine = HotkeyStateMachine()
 
     static var hasPermission: Bool { CGPreflightListenEventAccess() }
+
+    /// What System Settings calls the permission: macOS 27 folds Input
+    /// Monitoring into Device Control and Data Access.
+    static var permissionName: String {
+        ProcessInfo.processInfo.isOperatingSystemAtLeast(OperatingSystemVersion(majorVersion: 27, minorVersion: 0, patchVersion: 0))
+            ? "Device Control and Data Access" : "Input Monitoring"
+    }
     static func requestPermission() { CGRequestListenEventAccess() }
 
     /// Forgets this app's Input Monitoring answer. An ad-hoc signed update
