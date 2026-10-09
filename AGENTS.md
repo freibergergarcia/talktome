@@ -38,7 +38,8 @@ run with launch arguments, e.g. `-engine apple` or `-remoteURL http://host:8766/
 | File | Role |
 |---|---|
 | `HotkeyMonitor.swift` | Listen-only event tap + `HotkeyStateMachine` (tap vs hold, cancel rules) |
-| `AudioRecorder.swift` | Mic → 16 kHz mono int16 PCM, live levels |
+| `AudioRecorder.swift` | Mic → 16 kHz mono int16 PCM with AVCaptureSession (not AVAudioEngine: see the file), live levels |
+| `SoundOnset.swift` | When a starting mic delivers real sound; the start sound waits for it |
 | `Microphones.swift` | Core Audio device list; skips the built-in mic when the lid is closed |
 | `Transcribers.swift` | `AppleTranscriber` (SpeechAnalyzer) and `RemoteTranscriber` (OpenAI-compatible) |
 | `Wire.swift` | WAV and multipart encoding, dependency-free so tests compile it alone |

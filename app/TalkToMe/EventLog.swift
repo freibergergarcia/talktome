@@ -16,9 +16,10 @@ enum EventLog {
 
     static func write(_ message: String) {
         guard enabled else { return }
-        let line = "\(stamp.string(from: Date())) \(message)\n"
+        // Called from several threads: format on the log's own queue.
+        let now = Date()
         queue.async {
-            guard let data = line.data(using: .utf8) else { return }
+            guard let data = "\(stamp.string(from: now)) \(message)\n".data(using: .utf8) else { return }
             if let handle = try? FileHandle(forWritingTo: url) {
                 handle.seekToEndOfFile()
                 handle.write(data)

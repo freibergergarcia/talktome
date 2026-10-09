@@ -141,15 +141,16 @@ enum Snapshots {
             save(sheet.background(Color(nsColor: .windowBackgroundColor)), name, to: dir)
         }
 
-        let phases: [(String, Dictation.Phase)] = [
-            ("pill-recording", .recording),
-            ("pill-transcribing", .transcribing),
-            ("pill-done", .done(text: history[0].text, engine: "example.local")),
-            ("pill-failed", .failed("Mic: " + (AudioRecorder.RecorderError.noMicrophone.errorDescription ?? ""))),
+        let phases: [(String, Dictation.Phase, micLive: Bool)] = [
+            ("pill-starting", .recording, false),
+            ("pill-recording", .recording, true),
+            ("pill-transcribing", .transcribing, true),
+            ("pill-done", .done(text: history[0].text, engine: "example.local"), true),
+            ("pill-failed", .failed("Mic: " + (AudioRecorder.RecorderError.noMicrophone.errorDescription ?? "")), true),
         ]
-        for (name, phase) in phases {
+        for (name, phase, micLive) in phases {
             let pillModel = Dictation(settings: settings, live: false)
-            pillModel.loadPreview(phase: phase, history: [], stats: stats, remoteReachable: true, levels: levels)
+            pillModel.loadPreview(phase: phase, history: [], stats: stats, remoteReachable: true, levels: levels, micLive: micLive)
             let view = PillView(dictation: pillModel)
                 .frame(width: 420, height: 160)
                 .background(Color(red: 0.22, green: 0.24, blue: 0.30))
@@ -189,7 +190,8 @@ enum Snapshots {
         window.appearance = NSAppearance(named: .darkAqua)
         window.contentView = host
         host.layoutSubtreeIfNeeded()
-        RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+        // Long enough for delayed content, like the pill's "Starting mic…".
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
         guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return }
         host.cacheDisplay(in: host.bounds, to: rep)
         try? rep.representation(using: .png, properties: [:])?.write(to: dir.appending(path: "\(name).png"))

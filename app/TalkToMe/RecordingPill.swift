@@ -116,10 +116,15 @@ struct PillView: View {
         switch dictation.phase {
         case .recording:
             HStack(spacing: 14) {
-                PulsingDot(color: Palette.accent)
-                Waveform(levels: dictation.levels)
-                    .frame(height: 40)
+                PulsingDot(color: dictation.micLive ? Palette.accent : Palette.muted)
+                ZStack {
+                    Waveform(levels: dictation.levels)
+                        .opacity(dictation.micLive ? 1 : 0)
+                    if !dictation.micLive { StartingHint() }
+                }
+                .frame(height: 40)
                 Elapsed(since: dictation.recordingStartedAt ?? .now)
+                    .opacity(dictation.micLive ? 1 : 0)
             }
         case .transcribing:
             HStack(spacing: 14) {
@@ -220,6 +225,23 @@ struct Shimmer: View {
                 .frame(width: geo.size.width, height: geo.size.height)
             }
         }
+    }
+}
+
+/// While the mic starts. It appears only after a moment, so a mic that
+/// starts at once never flashes it.
+struct StartingHint: View {
+    @State private var visible = false
+
+    var body: some View {
+        Text("Starting mic…")
+            .font(Typeface.ui(13, weight: .medium))
+            .foregroundStyle(Palette.muted)
+            .opacity(visible ? 1 : 0)
+            .task {
+                try? await Task.sleep(for: .milliseconds(250))
+                withAnimation(.easeIn(duration: 0.2)) { visible = true }
+            }
     }
 }
 
