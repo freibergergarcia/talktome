@@ -86,7 +86,7 @@ TalkToMe over to it. Needs Apple Silicon.
 ```sh
 python3 -m venv ~/.local/share/talktome-server/venv
 ~/.local/share/talktome-server/venv/bin/pip install \
-  "talktome-server[mlx] @ git+https://github.com/freibergergarcia/talktome@v0.3.0#subdirectory=server"
+  "talktome-server[mlx] @ git+https://github.com/freibergergarcia/talktome@v0.3.1#subdirectory=server"
 ~/.local/share/talktome-server/venv/bin/talktome-server install-agent --host 0.0.0.0
 ~/.local/share/talktome-server/venv/bin/talktome-server token     # copy this
 ```
