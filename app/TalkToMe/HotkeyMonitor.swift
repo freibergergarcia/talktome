@@ -109,6 +109,9 @@ final class HotkeyMonitor {
 
     private static let escapeKeyCode: Int64 = 53
     private var tap: CFMachPort?
+    private var source: CFRunLoopSource?
+    /// Whether Input Monitoring was granted when the tap was made.
+    private var tapPermitted = false
     private var machine = HotkeyStateMachine()
 
     static var hasPermission: Bool { CGPreflightListenEventAccess() }
@@ -131,9 +134,14 @@ final class HotkeyMonitor {
         return reset.terminationStatus == 0
     }
 
+    /// Starts listening; true only if the hotkey will work in every app.
+    /// Without Input Monitoring macOS still creates the tap, but only passes
+    /// it keys typed into TalkToMe itself, so the tap alone proves nothing.
     @discardableResult
     func start() -> Bool {
-        if tap != nil { return true }
+        let permitted = Self.hasPermission
+        if tap != nil, permitted == tapPermitted { return permitted }
+        stop()
         let mask = (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.keyDown.rawValue)
         let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
@@ -149,10 +157,22 @@ final class HotkeyMonitor {
         )
         guard let tap else { return false }
         self.tap = tap
+        tapPermitted = permitted
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        self.source = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
-        return true
+        EventLog.write("hotkey tap started, permitted=\(permitted)")
+        return permitted
+    }
+
+    private func stop() {
+        guard let tap else { return }
+        CGEvent.tapEnable(tap: tap, enable: false)
+        if let source { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
+        CFMachPortInvalidate(tap)
+        self.tap = nil
+        source = nil
     }
 
     private func handle(type: CGEventType, event: CGEvent) {
