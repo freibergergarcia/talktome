@@ -24,6 +24,9 @@ final class Dictation {
     }
     /// Recent input levels, oldest first, for the waveform.
     private(set) var levels = [Float](repeating: 0, count: Dictation.levelCount)
+    /// Whether sound is coming in. AirPods take up to a second after the key
+    /// press; the pill says so meanwhile.
+    private(set) var micLive = false
     private(set) var recordingStartedAt: Date?
     private(set) var remoteReachable = false
     private(set) var history: [Entry] = []
@@ -36,6 +39,9 @@ final class Dictation {
 
     private let hotkey = HotkeyMonitor()
     private let recorder = AudioRecorder()
+    private var pressedAt = Date()
+    /// Counts recordings, so a late callback from an earlier one is ignored.
+    private var take = 0
 
     init(settings: AppSettings, live: Bool = true) {
         self.settings = settings
@@ -126,21 +132,39 @@ final class Dictation {
             fail("Microphone access needed")
             return
         }
-        do {
-            levels = [Float](repeating: 0, count: Self.levelCount)
-            try recorder.start(device: Microphones.resolve(preferredUID: settings.microphoneUID))
-            recordingStartedAt = Date()
-            phase = .recording
-            NSSound(named: "Tink")?.play()
-        } catch {
-            fail("Mic: \(error.localizedDescription)")
+        levels = [Float](repeating: 0, count: Self.levelCount)
+        micLive = false
+        recordingStartedAt = nil
+        pressedAt = Date()
+        take += 1
+        let current = take
+        // The pill shows at once; the start sound waits for the mic.
+        phase = .recording
+        let preferredUID = settings.microphoneUID
+        Task { [weak self, recorder] in
+            do {
+                try await recorder.start(preferredUID: preferredUID) {
+                    Task { @MainActor in self?.soundArrived(take: current) }
+                }
+            } catch {
+                guard let self, take == current else { return }
+                fail("Mic: \(error.localizedDescription)")
+            }
         }
+    }
+
+    private func soundArrived(take: Int) {
+        guard take == self.take, phase == .recording else { return }
+        EventLog.write("mic live after \(Int(Date().timeIntervalSince(pressedAt) * 1000)) ms")
+        micLive = true
+        recordingStartedAt = Date()
+        NSSound(named: "Tink")?.play()
     }
 
     private func cancel() {
         guard phase == .recording else { return }
-        _ = recorder.stop()
         phase = .idle
+        Task { _ = await recorder.stop() }
     }
 
     private func finish() {
@@ -148,17 +172,32 @@ final class Dictation {
             EventLog.write("finish ignored, phase \(Self.describe(phase))")
             return
         }
-        let pcm = recorder.stop()
-        let seconds = Double(pcm.count / 2) / AudioRecorder.sampleRate
-        // Under a quarter second is an accidental press, not speech.
-        guard seconds >= 0.25 else {
-            EventLog.write("clip too short: \(seconds)s")
-            phase = .idle
+        guard micLive else {
+            // Let go before the mic delivered any sound: there is nothing to
+            // send. Say why, unless it was only a tap.
+            let held = Date().timeIntervalSince(pressedAt)
+            EventLog.write("released before the mic was live, after \(Int(held * 1000)) ms")
+            if held < 0.3 {
+                phase = .idle
+            } else {
+                fail("The microphone was still starting. Hold the key until you hear the sound.")
+            }
+            Task { _ = await recorder.stop() }
             return
         }
-        NSSound(named: "Pop")?.play()
         phase = .transcribing
-        Task { await transcribe(pcm, seconds: seconds) }
+        Task {
+            let pcm = await recorder.stop()
+            let seconds = Double(pcm.count / 2) / AudioRecorder.sampleRate
+            // Under a quarter second is an accidental press, not speech.
+            guard seconds >= 0.25 else {
+                EventLog.write("clip too short: \(seconds)s")
+                phase = .idle
+                return
+            }
+            NSSound(named: "Pop")?.play()
+            await transcribe(pcm, seconds: seconds)
+        }
     }
 
     private func transcribe(_ pcm: Data, seconds: Double) async {
@@ -211,13 +250,14 @@ final class Dictation {
     }
 
     /// Fills the model with sample data for design snapshots (--snapshot).
-    func loadPreview(phase: Phase, history: [Entry], stats: Stats, remoteReachable: Bool, levels: [Float]) {
+    func loadPreview(phase: Phase, history: [Entry], stats: Stats, remoteReachable: Bool, levels: [Float], micLive: Bool = true) {
         self.history = history
         self.hotkeyActive = true
         self.stats = stats
         self.remoteReachable = remoteReachable
         self.levels = levels
-        self.recordingStartedAt = Date().addingTimeInterval(-7)
+        self.micLive = micLive
+        self.recordingStartedAt = micLive ? Date().addingTimeInterval(-7) : nil
         self.phase = phase
     }
 

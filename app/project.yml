@@ -52,6 +52,7 @@ targets:
       - path: TalkToMe/Stats.swift
       - path: TalkToMe/Wire.swift
       - path: TalkToMe/LocalServerSetup.swift
+      - path: TalkToMe/SoundOnset.swift
     settings:
       base:
         CODE_SIGN_IDENTITY: "-"
