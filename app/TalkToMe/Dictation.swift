@@ -301,6 +301,12 @@ final class Dictation {
         self.phase = phase
     }
 
+    /// Shows the hotkey's permission warning in a given repair step (--snapshot).
+    func loadPermissionPreview(_ repair: HotkeyRepair) {
+        hotkeyActive = false
+        hotkeyRepair = repair
+    }
+
     // MARK: - Reachability
 
     func refreshRemote() async {

@@ -57,16 +57,17 @@ struct HomePanel: View {
                     .foregroundStyle(Palette.warning)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 8) {
-                    if dictation.hotkeyRepair == .needsRelaunch {
+                    switch dictation.hotkeyRepair {
+                    case .needsRelaunch:
                         Button("Relaunch") { dictation.relaunch() }
                         Button("Open Settings") { Self.openInputMonitoring() }
-                    } else {
+                    case .failed:
+                        Button("Fix permission") { dictation.fixHotkeyPermission() }
+                        Button("Open Settings") { Self.openInputMonitoring() }
+                    case .none, .repairing:
                         Button("Try again") { dictation.startHotkey() }
                         Button("Fix permission") { dictation.fixHotkeyPermission() }
                             .disabled(dictation.hotkeyRepair == .repairing)
-                        if dictation.hotkeyRepair == .failed {
-                            Button("Open Settings") { Self.openInputMonitoring() }
-                        }
                     }
                 }
                 .buttonStyle(CapsuleButton())
