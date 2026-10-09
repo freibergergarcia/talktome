@@ -2,7 +2,7 @@
 # Install talktome-server on this Mac and run it at login, on localhost only.
 # TalkToMe runs this from Settings; it works by hand too:
 #
-#   scripts/install-local-server.sh 0.3.0
+#   scripts/install-local-server.sh 0.3.1
 #
 # Everything goes into one folder: a private Python (pinned and checksum-
 # verified, so Homebrew upgrades cannot break it), a virtual environment, and
