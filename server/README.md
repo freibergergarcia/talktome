@@ -76,7 +76,7 @@ On the Mac that will do the transcribing (Apple Silicon, Python 3.10+):
 ```sh
 python3 -m venv ~/.local/share/talktome-server/venv
 ~/.local/share/talktome-server/venv/bin/pip install \
-  "talktome-server[mlx] @ git+https://github.com/freibergergarcia/talktome@v0.3.1#subdirectory=server"
+  "talktome-server[mlx] @ git+https://github.com/freibergergarcia/talktome@v0.3.2#subdirectory=server"
 ```
 
 From a clone, install `"./server[mlx]"` instead.
