@@ -53,6 +53,7 @@ targets:
       - path: TalkToMe/Wire.swift
       - path: TalkToMe/LocalServerSetup.swift
       - path: TalkToMe/SoundOnset.swift
+      - path: TalkToMe/LevelMeter.swift
     settings:
       base:
         CODE_SIGN_IDENTITY: "-"
