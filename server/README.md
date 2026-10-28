@@ -1,7 +1,9 @@
 # talktome-server
 
 Self-hosted speech-to-text for [TalkToMe](../README.md). Runs NVIDIA's
-Parakeet TDT 0.6B v3 on Apple Silicon behind an OpenAI-compatible endpoint.
+Parakeet TDT 0.6B v3 on Apple Silicon behind an OpenAI-compatible endpoint,
+or, optionally, NVIDIA's larger Nemotron 3.5 Transcribe (see
+[Nemotron](#nemotron)).
 
 ## How it runs the model
 
@@ -117,8 +119,10 @@ The path includes the Python version, so repeat this after upgrading Python.
 | `talktome-server uninstall-agent` | Stop and remove the launch agent |
 
 Options for `serve` and `install-agent`: `--host`, `--port` (default 8766),
-`--model` (default `mlx-community/parakeet-tdt-0.6b-v3`), `--languages`
-(e.g. `en,pt`: never write in another alphabet; see API).
+`--engine` (`parakeet`, the default, or `nemotron`: see [Nemotron](#nemotron)),
+`--model` (for Parakeet, default `mlx-community/parakeet-tdt-0.6b-v3`),
+`--languages` (Parakeet only, e.g. `en,pt`: never write in another alphabet;
+see API).
 
 Set `HF_HOME` before `install-agent` to reuse an existing Hugging Face cache.
 The token can also come from the `TALKTOME_TOKEN` environment variable.
@@ -144,8 +148,113 @@ Parakeet detects the language itself and has no way to be told one. What
 `language` does is rule out tokens written in other alphabets: with `en,pt`
 a short clip can no longer come back in Cyrillic or Greek. Languages that
 share an alphabet (English and Portuguese) are still told apart by the model.
+Nemotron ignores `language`.
 
 ## Logs
 
 `~/Library/Logs/talktome-server.log` when installed as an agent. Each request
 logs duration, loudness, inference time and transcript length, never the text.
+
+## Nemotron
+
+An optional, larger engine, for a Mac with memory to spare when accuracy
+matters more than speed: NVIDIA's
+[Nemotron 3.5 Transcribe](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B),
+a speech language model whose audio encoder feeds a 30B mixture-of-experts
+language model, of which about 4B parameters run per token. `nemotron.py`
+runs it through [mlx-audio](https://github.com/Blaizzy/mlx-audio)'s port,
+from a 4-bit MLX conversion of NVIDIA's release that
+`tools/convert_nemotron.py` makes.
+
+Measured on the same Mac Studio (M5 Max), on the same clips as above; error
+rates as `parity/compare.py` computes them, against the human transcripts:
+
+| | Parakeet (default) | Nemotron, 4-bit |
+|---|---|---|
+| Error rate, short clips (English / Portuguese) | 2.16% / 4.95% | 1.68% / 4.49% |
+| Error rate, 12 LibriSpeech chapters (3.4 min average) | 1.92% | 1.13% |
+| Time for a 10 s clip | 40 ms | 342 ms |
+| Time for a 60 s clip | 199 ms | 1,421 ms |
+| GPU memory at peak, 60 s clip | 3.8 GB | 20.4 GB |
+| Weights on disk | 2.5 GB | 19.3 GB |
+| Languages | 25 European | 40 |
+| Transcripts checked against the reference implementation | Yes, NeMo's | No: error rates only |
+
+On these clips Nemotron makes about a fifth fewer errors than Parakeet in
+English and a tenth fewer in Portuguese. It takes seven to nine times as
+long and five times the memory, and two of its habits matter for dictation
+(Limits, below): it writes Portuguese numbers as words more often, and it
+answers a short press with nothing said with a word or two. Parakeet stays
+the default.
+
+### Setting it up
+
+On the server Mac, with 87 GB of free disk: 68 GB for NVIDIA's release,
+which stays in the Hugging Face cache, and 19 GB for the conversion.
+
+```sh
+venv/bin/pip install "./server[mlx,nemotron]"
+venv/bin/python server/tools/convert_nemotron.py ~/models/nemotron-4bit
+venv/bin/talktome-server install-agent --engine nemotron --model ~/models/nemotron-4bit
+```
+
+The conversion downloads the pinned revision of NVIDIA's weights, checks
+their SHA-256, and runs mlx-audio's own converter; `conversion.json` in the
+folder records what went in and the SHA-256 of what came out. With the
+release already downloaded it took 41 s on the M5 Max, at a peak of 7.3 GiB,
+and wrote the same bytes as an earlier conversion. `deploy-server.sh` passes
+`--engine nemotron --model ...` through to `install-agent`, and installs the
+extra; the folder must exist on the remote Mac first. Going back to Parakeet
+is `install-agent` without `--engine`.
+
+### How it runs
+
+- Recordings are cut at pauses into pieces of at most 60 s, as for
+  Parakeet. The model was trained on recordings of up to an hour; the cut
+  bounds the time and memory of each pass.
+- Each piece is transcribed with NVIDIA's instruction for FLEURS, its
+  multilingual benchmark: verbatim, fillers and repetitions included,
+  numbers in their standard written form. The model card's "clean written
+  transcript" wording, which leaves fillers out, made more errors (1.93%
+  against 1.68% in English, 4.55% against 4.49% in Portuguese) and dropped
+  the article from 6 of the 31 Portuguese sentences that begin with "Um" or
+  "Uma".
+- A language model can loop, repeating a phrase until it runs out of tokens.
+  A piece may write 64 tokens plus 16 per second of audio (1,024 for 60 s);
+  on the test sets the model never wrote more than 6 per second. NVIDIA's
+  loop cleanup then keeps one copy of a character repeated more than 20
+  times, or of a stretch of text repeated 20 times or more. A piece that
+  uses its whole budget is logged as a warning.
+- A piece that is digital silence, all zeros, is not sent to the model. A
+  mic that delivers only zeros (a closed laptop's) still reaches the server,
+  and the model answers zeros with words, from "Okay." at 1 s to a made-up
+  sentence at 5 s, which TalkToMe would paste. Parakeet returns nothing, and
+  TalkToMe asks whether the right microphone is selected.
+- The model identifies the language itself; `language` and `--languages`
+  are ignored.
+- One thread runs the model, so requests are served one at a time.
+
+Limits:
+
+- TalkToMe waits at most 15 s for an answer, and Nemotron needs about 1.5 s
+  per minute of audio (3.1 s for 120 s), so dictations longer than about
+  9 minutes time out and go to Apple's recognizer, if the fallback is on.
+  The server still finishes the abandoned transcription before the next.
+- Unlike Parakeet's, these transcripts are not checked against NVIDIA's own
+  implementation, only scored. On LibriSpeech with the Open ASR
+  Leaderboard's normalizer this conversion makes 1.45% errors where NVIDIA
+  reports 1.09% (1.44% with NVIDIA's LibriSpeech instruction); whether the
+  4-bit quantization or the port accounts for the difference is not
+  settled.
+- Of the 187 FLEURS sentences with digits in the reference, Nemotron wrote
+  the numbers as words in 51 ("mil novecentos e oitenta e oito" for 1988),
+  Parakeet in 8. Those 51 sentences hold 46% of Nemotron's Portuguese
+  errors.
+- A press with nothing said sends the mic's noise, and Nemotron answers it
+  with a word or two, often in another language ("Okay.", "Sí.", "Семьдесят
+  пять.", Russian for "seventy-five"), which TalkToMe pastes. On white noise
+  at -80 to -40 dBFS and a 50 Hz hum, it wrote something for all 64 clips of
+  2 s or less and for 5 of the 32 at 3 and 5 s; Parakeet for 15 of the 64
+  and none of the longer ones. Asking in the instruction for nothing when
+  there is no speech helped only from 2 s on, so the instruction stays as
+  NVIDIA evaluated it.

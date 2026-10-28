@@ -175,6 +175,7 @@ cd server && pip install -e '.[dev]' && pytest && ruff check .
 - [Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) by NVIDIA (CC-BY-4.0), with weights converted to MLX format by [mlx-community](https://huggingface.co/mlx-community/parakeet-tdt-0.6b-v3).
 - [NVIDIA NeMo](https://github.com/NVIDIA/NeMo) (Apache-2.0): talktome-server's Parakeet code follows its reference implementation.
 - [MLX](https://github.com/ml-explore/mlx) by Apple (MIT) runs the encoder on the GPU.
+- Optional engine: [Nemotron 3.5 Transcribe](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B) by NVIDIA (OpenMDW-1.1), converted on your Mac and run through [mlx-audio](https://github.com/Blaizzy/mlx-audio) (MIT). Its loop cleanup follows the model card's `cleanup_generation_loops`, NVIDIA's adaptation of [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR)'s (Apache-2.0).
 
 ## License
 

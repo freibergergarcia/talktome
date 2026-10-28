@@ -10,7 +10,7 @@ library the server used before.
 | `make_reference.py` | `nemo_toolkit[asr]` | Transcribes a manifest with NeMo |
 | `compare.py` | an engine, `soundfile` | Transcribes the same audio; counts identical transcripts, WER, speed |
 | `speed.py` | an engine, `soundfile` | Median time per clip at 2, 10, 60 and 120 s |
-| `engines.py` | | Loads `ours` (this package with `[mlx]`) or `parakeet-mlx` (that package), each as its server ran it |
+| `engines.py` | | Loads `ours` (this package with `[mlx]`), `parakeet-mlx` (that package), each as its server ran it, or `nemotron` (this package with `[mlx,nemotron]`) |
 | `make_mel_fixture.py` | `nemo_toolkit[asr]` | Regenerates `tests/fixtures/nemo_log_mel.npz` |
 
 Install NeMo in its own virtual environment; it pulls in PyTorch and much more.
@@ -25,7 +25,12 @@ python make_reference.py manifest.jsonl reference.jsonl              # NeMo env
 python compare.py reference.jsonl                                    # talktome-server env
 python compare.py reference.jsonl --engine parakeet-mlx              # parakeet-mlx env
 python speed.py reference.jsonl [--engine parakeet-mlx]
+python compare.py reference.jsonl --engine nemotron --model DIR      # DIR from tools/convert_nemotron.py
 ```
+
+With `--engine nemotron`, "identical to NeMo" only counts transcripts that
+happen to match NeMo's Parakeet, a different model; compare the word error
+rate instead.
 
 Our engine is exact float32 by default; `MLX_ENABLE_TF32=1` measures the
 faster TF32 mode instead (see below).
