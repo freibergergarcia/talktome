@@ -22,10 +22,11 @@ you point it at one.
   cancels. Right ⌥, right ⌃ or fn work too.
 - **Pastes at the cursor** in any app, and always copies to the clipboard.
 - **Three ways to transcribe:**
-  - **On this Mac:** Apple's on-device speech model. Zero setup, nothing leaves the Mac.
+  - **On your Mac:** Apple's on-device speech model. Zero setup, nothing leaves your Mac.
   - **Your own server:** `talktome-server` runs NVIDIA Parakeet on any Apple
-    Silicon Mac on your network, or on this one, set up from Settings in one
-    click. Well under half a second per sentence, and it detects 25 languages on its own.
+    Silicon Mac on your network, or on the Mac you dictate on, set up from
+    Settings in one click. Well under half a second per sentence, and it
+    detects 25 languages on its own.
     On a Mac with memory to spare it can run NVIDIA's **Nemotron 3.5
     Transcribe** instead: about a fifth fewer errors in English, 40 languages,
     still under a second per sentence.
@@ -126,7 +127,7 @@ choose, and pastes the text at the cursor.
 
 | Engine | Typical latency | Languages | Where audio goes |
 |---|---|---|---|
-| On this Mac | ~0.2–0.5 s | One at a time, chosen in Settings | Nowhere |
+| Apple on-device | ~0.2–0.5 s | One at a time, chosen in Settings | Nowhere |
 | talktome-server, Parakeet v3 (default) | ~0.3–0.4 s over home Wi-Fi | 25 European languages, auto-detected | Your server |
 | talktome-server, Nemotron 3.5 (optional) | ~0.5–0.8 s over home Wi-Fi | 40 languages, auto-detected | Your server |
 | OpenAI-compatible | Depends on provider | Depends on provider | The URL you set |
