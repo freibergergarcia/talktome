@@ -1,19 +1,20 @@
 <p align="center"><img src="docs/images/icon.png" width="128" alt="TalkToMe icon"></p>
 
-# TalkToMe
-
-Push-to-talk dictation for macOS. Tap a key, talk, tap again: your words are
-pasted where the cursor is. Transcription runs on your Mac, or on a server you
-control. No account, no subscription, no cloud unless you point it at one.
+<h1 align="center">TalkToMe</h1>
 
 <p align="center">
-  <img src="docs/images/pill-recording.png" width="420" alt="Recording pill with live waveform">
-  <img src="docs/images/pill-done.png" width="420" alt="Pill showing the pasted transcript">
+  Push-to-talk dictation for macOS. Tap a key, talk, tap again:<br>
+  your words are pasted where the cursor is.
 </p>
 
 <p align="center">
-  <img src="docs/images/home.png" width="340" alt="Menu bar panel with today's stats and recent dictations">
+  <img src="docs/images/hero.png" width="884" alt="The pill while you talk, with its live waveform, and once the text is pasted, beside the menu bar panel with today's stats and recent dictations">
 </p>
+
+Transcription runs on your Mac with Apple's on-device model, or on a server
+you control with NVIDIA's Parakeet, or the larger Nemotron 3.5 Transcribe when
+accuracy matters more than speed. No account, no subscription, no cloud unless
+you point it at one.
 
 ## Features
 
@@ -25,6 +26,9 @@ control. No account, no subscription, no cloud unless you point it at one.
   - **Your own server:** `talktome-server` runs NVIDIA Parakeet on any Apple
     Silicon Mac on your network, or on this one, set up from Settings in one
     click. Well under half a second per sentence, and it detects 25 languages on its own.
+    On a Mac with memory to spare it can run NVIDIA's **Nemotron 3.5
+    Transcribe** instead: about a fifth fewer errors in English, 40 languages,
+    still under a second per sentence.
   - **Any OpenAI-compatible endpoint:** anything that implements
     `POST /v1/audio/transcriptions`.
 - **Automatic fallback** to on-device transcription when the server is
@@ -37,6 +41,7 @@ control. No account, no subscription, no cloud unless you point it at one.
 |---|---|
 | App | macOS 26 or later. To build from source: Xcode 26+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen) |
 | Server (optional) | A Mac with Apple Silicon, Python 3.10+ |
+| Nemotron engine (optional) | On the server Mac: about 21 GB of free memory, and 87 GB of free disk to set it up |
 
 ## Quick start
 
@@ -101,6 +106,11 @@ Plain HTTP suits a trusted home network; on shared networks put the server
 behind HTTPS (see [SECURITY.md](SECURITY.md)). Updating, deploying over SSH
 and the macOS firewall: see [server/README.md](server/README.md#install).
 
+**For more accuracy**, the server can run NVIDIA's Nemotron 3.5 Transcribe
+instead of Parakeet, on a Mac with about 21 GB of memory to spare. TalkToMe
+needs no change: same URL, same token. Setup and trade-offs:
+[server/README.md](server/README.md#nemotron).
+
 ### 3. Optional: use another OpenAI-compatible service
 
 No server install needed: TalkToMe works with any service that implements
@@ -117,8 +127,30 @@ choose, and pastes the text at the cursor.
 | Engine | Typical latency | Languages | Where audio goes |
 |---|---|---|---|
 | On this Mac | ~0.2–0.5 s | One at a time, chosen in Settings | Nowhere |
-| talktome-server (Parakeet v3) | ~0.3–0.4 s over home Wi-Fi | 25 European languages, auto-detected | Your server |
+| talktome-server, Parakeet v3 (default) | ~0.3–0.4 s over home Wi-Fi | 25 European languages, auto-detected | Your server |
+| talktome-server, Nemotron 3.5 (optional) | ~0.5–0.8 s over home Wi-Fi | 40 languages, auto-detected | Your server |
 | OpenAI-compatible | Depends on provider | Depends on provider | The URL you set |
+
+### Nemotron, the optional engine
+
+[Nemotron 3.5 Transcribe](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B)
+is NVIDIA's speech language model: an audio encoder feeding a 30B
+mixture-of-experts language model, of which about 4B parameters run per
+token. talktome-server runs a 4-bit MLX conversion of NVIDIA's release, made
+on your Mac by `server/tools/convert_nemotron.py`. Measured on a Mac Studio
+(M5 Max):
+
+| | Parakeet (default) | Nemotron, 4-bit |
+|---|---|---|
+| Error rate, short clips (English / Portuguese) | 2.16% / 4.95% | 1.68% / 4.49% |
+| Time for a 10 s clip | 40 ms | 342 ms |
+| GPU memory at peak | 3.8 GB | 20.4 GB |
+| Languages | 25 European | 40 |
+
+It writes Portuguese numbers as words more often than Parakeet, and answers a
+short press with nothing said with a word or two, so Parakeet stays the
+default. Method, setup and limits:
+[server/README.md](server/README.md#nemotron).
 
 ### talktome-server and parakeet-mlx
 
@@ -157,6 +189,7 @@ See [SECURITY.md](SECURITY.md) for the network model.
 | Nothing happens on the key, or only while TalkToMe is in front | Input Monitoring is not granted, or still points at an older version. Use **Fix permission** in the menu bar panel, or System Settings → Privacy & Security → Input Monitoring (macOS 27: Device Control and Data Access) |
 | Text is copied but not pasted | Accessibility is not granted, or "Paste at the cursor" is off |
 | Server works locally but not from another Mac | Firewall, see [server/README.md](server/README.md#firewall) |
+| With Nemotron, dictations suddenly take seconds and fall back to Apple | Another large model on the server Mac is using the memory Nemotron needs, see [server/README.md](server/README.md#nemotron) |
 | "requires the use of a secure connection" | macOS only allows plain HTTP to local addresses (`.local`, private IPs). Use HTTPS for anything else |
 
 Turn on **Settings → Advanced → Debug log** and check `~/Library/Logs/TalkToMe.log`.

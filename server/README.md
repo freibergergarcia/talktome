@@ -240,6 +240,11 @@ Limits:
   per minute of audio (3.1 s for 120 s), so dictations longer than about
   9 minutes time out and go to Apple's recognizer, if the fallback is on.
   The server still finishes the abandoned transcription before the next.
+- The model's 19 GB must stay in memory. On the 48 GB Mac Studio, after a
+  19 GB language model on the same Mac had been in use, with Parakeet and a
+  virtual machine also running, a 54 s dictation took 64 s where 60 s
+  normally takes 1.4 s; TalkToMe gave up at 15 s, and the next dictation, 4 s
+  long, took 11 s. Give Nemotron a Mac with the memory to spare.
 - Unlike Parakeet's, these transcripts are not checked against NVIDIA's own
   implementation, only scored. On LibriSpeech with the Open ASR
   Leaderboard's normalizer this conversion makes 1.45% errors where NVIDIA
