@@ -21,6 +21,9 @@ dependencies = [
 # Face client to fetch the weights. Apple Silicon only; kept optional so the
 # HTTP layer, the NumPy front end and decoder, and their tests install anywhere.
 mlx = ["mlx>=0.32.3,<0.33", "huggingface_hub>=0.24"]
+# The optional Nemotron engine (README.md, "Nemotron"), installed together
+# with mlx. Pinned to the release whose port and outputs were measured.
+nemotron = ["mlx-audio==0.6.3"]
 dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.6"]
 
 [project.scripts]

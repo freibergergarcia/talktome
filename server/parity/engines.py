@@ -7,8 +7,12 @@ parakeet-mlx   The library the server used before it had its own code,
                loaded and called as that server did: bfloat16 weights, one
                worker thread, one pass per clip up to 120 s. Only these
                scripts need it.
+nemotron       talktome-server's NemotronEngine (the [nemotron] extra), from
+               the folder tools/convert_nemotron.py wrote, passed as --model.
+               Not a Parakeet: compare.py's "identical to NeMo" then counts
+               agreement with Parakeet.
 
-Both load the same snapshot of the weights.
+The two Parakeet engines load the same snapshot of the weights.
 """
 
 from collections.abc import Callable
@@ -18,7 +22,7 @@ import numpy as np
 MODEL = "mlx-community/parakeet-tdt-0.6b-v3"
 # The snapshot talktome_server.engine.PINNED_REVISIONS pins for MODEL.
 REVISION = "ed2b7e8c15f9aaa0b5772e2efb986255eaef7e15"
-ENGINES = ("ours", "parakeet-mlx")
+ENGINES = ("ours", "parakeet-mlx", "nemotron")
 
 
 def load(name: str, model: str = MODEL, languages: str | None = None) -> tuple[str, Callable[[np.ndarray], str]]:
@@ -28,6 +32,8 @@ def load(name: str, model: str = MODEL, languages: str | None = None) -> tuple[s
         return _ours(model, languages)
     if languages:
         raise ValueError(f"{name} has no language setting")
+    if name == "nemotron":
+        return _nemotron(model)
     return _parakeet_mlx(model)
 
 
@@ -45,6 +51,21 @@ def _ours(model: str, languages: str | None) -> tuple[str, Callable[[np.ndarray]
         f"ours: {model}@{PINNED_REVISIONS.get(model, 'latest')}, float32, MLX {mx.__version__}, "
         f"MLX_ENABLE_TF32={os.environ['MLX_ENABLE_TF32']}"
     )
+    return description, engine.transcribe
+
+
+def _nemotron(model: str) -> tuple[str, Callable[[np.ndarray], str]]:
+    from importlib.metadata import version
+
+    import mlx.core as mx
+
+    from talktome_server.nemotron import NemotronEngine
+
+    if model == MODEL:
+        raise ValueError("nemotron needs --model: the folder tools/convert_nemotron.py wrote")
+    engine = NemotronEngine(model)
+    engine.warm_up()
+    description = f"nemotron: {model}, 4-bit, mlx-audio {version('mlx-audio')}, MLX {mx.__version__}"
     return description, engine.transcribe
 
 

@@ -2,12 +2,15 @@
 
 talktome-server serve                 run in the foreground (localhost only)
 talktome-server serve --host 0.0.0.0  listen on the network (needs a token)
+talktome-server serve --engine nemotron --model DIR
+                                      the larger model (see README.md, "Nemotron")
 talktome-server token                 print the token, creating it if needed
 talktome-server install-agent         run at login via launchd (macOS)
 talktome-server uninstall-agent       stop it and remove the launch agent
 """
 
 import argparse
+import importlib.util
 import ipaddress
 import logging
 import os
@@ -27,6 +30,7 @@ AGENT_LABEL = "com.talktome.server"
 AGENT_PLIST = Path.home() / "Library/LaunchAgents" / f"{AGENT_LABEL}.plist"
 AGENT_LOG = Path.home() / "Library/Logs/talktome-server.log"
 DEFAULT_PORT = 8766
+ENGINES = ("parakeet", "nemotron")
 
 
 def is_loopback(host: str) -> bool:
@@ -60,12 +64,34 @@ def ensure_token() -> str:
     return token
 
 
+def nemotron_installed() -> bool:
+    return importlib.util.find_spec("mlx_audio") is not None
+
+
+def chosen_model(args: argparse.Namespace) -> str:
+    """Parakeet has a default model. Nemotron has none: it runs from the
+    folder tools/convert_nemotron.py wrote, which must be named."""
+    if args.engine == "parakeet":
+        return args.model or DEFAULT_MODEL
+    if not args.model:
+        sys.exit("--engine nemotron needs --model: the folder tools/convert_nemotron.py wrote (see README.md)")
+    folder = Path(args.model).expanduser()
+    # Checked now: launchd would otherwise restart a server that cannot load
+    # its model every 30 s.
+    if not folder.is_dir():
+        sys.exit(f"{folder} is not a folder: make it with tools/convert_nemotron.py first (see README.md)")
+    if not nemotron_installed():
+        sys.exit('--engine nemotron needs mlx-audio: install "talktome-server[mlx,nemotron]" (see README.md)')
+    # Absolute, since launchd starts the server in /.
+    return str(folder.resolve())
+
+
 def cmd_serve(args: argparse.Namespace) -> None:
     import uvicorn
 
     from .app import create_app
-    from .engine import ParakeetEngine
 
+    model = chosen_model(args)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     token = read_token()
     if not is_loopback(args.host) and not token:
@@ -76,7 +102,17 @@ def cmd_serve(args: argparse.Namespace) -> None:
     if not token:
         logging.warning("no token set: any process on this machine can use the server")
 
-    engine = ParakeetEngine(args.model, languages=parse_languages(args.languages))
+    languages = parse_languages(args.languages)
+    if args.engine == "nemotron":
+        from .nemotron import NemotronEngine
+
+        if languages:
+            logging.warning("--languages applies to parakeet only; nemotron ignores it")
+        engine = NemotronEngine(model)
+    else:
+        from .engine import ParakeetEngine
+
+        engine = ParakeetEngine(model, languages=languages)
     engine.warm_up()
     uvicorn.run(create_app(engine, token), host=args.host, port=args.port, log_level="warning")
 
@@ -102,6 +138,7 @@ def unload_agent() -> None:
 def cmd_install_agent(args: argparse.Namespace) -> None:
     if sys.platform != "darwin":
         sys.exit("install-agent uses launchd and only works on macOS.")
+    model = chosen_model(args)
     if not is_loopback(args.host):
         ensure_token()
 
@@ -121,8 +158,9 @@ def cmd_install_agent(args: argparse.Namespace) -> None:
             args.host,
             "--port",
             str(args.port),
+            *(["--engine", args.engine] if args.engine != "parakeet" else []),
             "--model",
-            args.model,
+            model,
             *(["--languages", args.languages] if args.languages else []),
         ],
         "EnvironmentVariables": env,
@@ -172,7 +210,8 @@ def main(argv: list[str] | None = None) -> None:
     def add_listen_options(p: argparse.ArgumentParser) -> None:
         p.add_argument("--host", default="127.0.0.1", help="address to listen on (default: 127.0.0.1)")
         p.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"port (default: {DEFAULT_PORT})")
-        p.add_argument("--model", default=DEFAULT_MODEL, help=f"Hugging Face model id (default: {DEFAULT_MODEL})")
+        p.add_argument("--engine", choices=ENGINES, default="parakeet", help="speech model (default: parakeet)")
+        p.add_argument("--model", help=f"Hugging Face model id or local folder (default for parakeet: {DEFAULT_MODEL})")
         p.add_argument(
             "--languages",
             help="languages spoken, e.g. en,pt: rules out other alphabets unless a request names its own",

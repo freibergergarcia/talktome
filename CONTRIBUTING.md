@@ -42,7 +42,14 @@ The app can render every screen with sample data, no hotkey or permissions neede
 build/Build/Products/Debug/TalkToMe.app/Contents/MacOS/TalkToMe --snapshot /tmp/talktome-snapshots
 ```
 
-If your change is visible in the README, regenerate `docs/images` the same way.
+If your change is visible in the README, regenerate `docs/images` the same way,
+in US English so numbers and times read like the README's text, and copy over
+the files the folder already has (`hero.png` is the README's first image):
+
+```sh
+build/Build/Products/Debug/TalkToMe.app/Contents/MacOS/TalkToMe --snapshot /tmp/talktome-snapshots \
+  -AppleLocale en_US -AppleLanguages '(en)'
+```
 
 ### Testing an engine without speaking
 

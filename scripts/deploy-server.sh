@@ -8,7 +8,9 @@
 #   HF_HOME  remote Hugging Face cache to reuse (default: the standard cache)
 #
 # Extra arguments go to `talktome-server install-agent`. Without --host the
-# server only listens on the remote machine itself.
+# server only listens on the remote machine itself. With --engine nemotron
+# the [nemotron] extra is installed too; --model then names a folder that
+# server/tools/convert_nemotron.py made on the remote Mac.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -27,7 +29,11 @@ python="$1"; hf_home="$2"; shift 2
 cd ~/.local/share/talktome-server
 [ -x venv/bin/python ] || "$python" -m venv venv
 venv/bin/pip install -q --upgrade pip
-venv/bin/pip install -q "./src[mlx]"
+extras=mlx
+for arg in "$@"; do
+  case "$arg" in nemotron | --engine=nemotron) extras=mlx,nemotron ;; esac
+done
+venv/bin/pip install -q "./src[$extras]"
 if [ -n "$hf_home" ]; then export HF_HOME="$hf_home"; fi
 venv/bin/talktome-server install-agent "$@"
 REMOTE
