@@ -74,7 +74,8 @@ to `TalkToMeTests.sources` in `app/project.yml`.
   body is read.** FastAPI parses multipart bodies before route dependencies
   run, so never move the token check into a `Depends`.
 - After UI changes, run `--snapshot` and look at the PNGs; regenerate
-  `docs/images` when the change is visible in the README.
+  `docs/images` when the change is visible in the README, in US English
+  (`-AppleLocale en_US`, see CONTRIBUTING.md).
 - MLX models are bound to the thread that loaded them: all model calls go
   through the engine's single worker thread (`ParakeetEngine`, `NemotronEngine`).
 - `features.py`, `conformer.py` and `tdt.py` reproduce NVIDIA NeMo. Any change

@@ -125,7 +125,7 @@ enum Snapshots {
 
         let model = Dictation(settings: settings, live: false)
         model.loadPreview(phase: .idle, history: history, stats: stats, remoteReachable: true, levels: levels)
-        save(HomePanel(dictation: model), "home", to: dir)
+        save(HomePanel(dictation: model).panelOutline(), "home", to: dir)
         save(SettingsView(settings: settings, dictation: model), "settings", to: dir)
 
         let repairs: [(String, Dictation.HotkeyRepair)] = [
@@ -169,6 +169,13 @@ enum Snapshots {
                 .background(Color(red: 0.22, green: 0.24, blue: 0.30))
             save(view, name, to: dir)
         }
+
+        let recording = Dictation(settings: settings, live: false)
+        recording.loadPreview(phase: .recording, history: [], stats: stats, remoteReachable: true, levels: levels)
+        let pasted = Dictation(settings: settings, live: false)
+        pasted.loadPreview(phase: .done(text: history[0].text, engine: "example.local"), history: [], stats: stats,
+                           remoteReachable: true, levels: levels)
+        save(ReadmeHero(home: model, recording: recording, pasted: pasted), "hero", to: dir)
     }
 
     static func renderIcon(to dir: URL) {
@@ -208,5 +215,39 @@ enum Snapshots {
         guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return }
         host.cacheDisplay(in: host.bounds, to: rep)
         try? rep.representation(using: .png, properties: [:])?.write(to: dir.appending(path: "\(name).png"))
+    }
+}
+
+/// The README's first image: the pill while you talk and once the text is
+/// pasted, beside the menu bar panel, over a backdrop in the app's colours.
+private struct ReadmeHero: View {
+    let home: Dictation
+    let recording: Dictation
+    let pasted: Dictation
+
+    var body: some View {
+        HStack(spacing: 28) {
+            // Each pill sits at the bottom of its frame, as on screen.
+            VStack(spacing: 0) {
+                PillView(dictation: recording).frame(width: 420, height: 120)
+                PillView(dictation: pasted).frame(width: 420, height: 130)
+            }
+            HomePanel(dictation: home)
+                .panelOutline()
+                .shadow(color: .black.opacity(0.5), radius: 28, y: 14)
+        }
+        .padding(48)
+        .background(backdrop)
+        .clipShape(.rect(cornerRadius: 24, style: .continuous))
+    }
+
+    private var backdrop: some View {
+        ZStack {
+            Palette.ink
+            RadialGradient(colors: [Palette.accent.opacity(0.55), .clear],
+                           center: .init(x: 0.1, y: 0.0), startRadius: 0, endRadius: 720)
+            RadialGradient(colors: [Palette.accent2.opacity(0.45), .clear],
+                           center: .init(x: 1.0, y: 1.0), startRadius: 0, endRadius: 640)
+        }
     }
 }

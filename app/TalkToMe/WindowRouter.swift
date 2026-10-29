@@ -127,10 +127,7 @@ final class DropDownPanel: NSPanel {
         isOpaque = false
         hasShadow = true
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
-        contentView = NSHostingView(rootView: content
-            .clipShape(.rect(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Palette.hairline, lineWidth: 0.5)))
+        contentView = NSHostingView(rootView: content.panelOutline())
     }
 
     // Borderless windows refuse key status by default; buttons and hover
@@ -158,6 +155,16 @@ final class DropDownPanel: NSPanel {
     override func cancelOperation(_ sender: Any?) {
         orderOut(nil)
         onClose?()
+    }
+}
+
+extension View {
+    /// The drop-down panel's rounded corners and hairline edge; the snapshots
+    /// draw the same outline.
+    func panelOutline() -> some View {
+        clipShape(.rect(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Palette.hairline, lineWidth: 0.5))
     }
 }
 
