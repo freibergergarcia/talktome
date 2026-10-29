@@ -4,7 +4,7 @@
 
 | Engine | Network traffic |
 |---|---|
-| On this Mac | None |
+| Apple on-device | None |
 | Server | The recorded clip (WAV) to the configured URL, with the API key as a bearer token |
 
 The app never sends audio anywhere you did not configure. When the server is

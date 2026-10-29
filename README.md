@@ -24,8 +24,9 @@ you point it at one.
 - **Three ways to transcribe:**
   - **On your Mac:** Apple's on-device speech model. Zero setup, nothing leaves your Mac.
   - **Your own server:** `talktome-server` runs NVIDIA Parakeet on any Apple
-    Silicon Mac on your network, or on this one, set up from Settings in one
-    click. Well under half a second per sentence, and it detects 25 languages on its own.
+    Silicon Mac on your network, or on the Mac you dictate on, set up from
+    Settings in one click. Well under half a second per sentence, and it
+    detects 25 languages on its own.
     On a Mac with memory to spare it can run NVIDIA's **Nemotron 3.5
     Transcribe** instead: about a fifth fewer errors in English, 40 languages,
     still under a second per sentence.
